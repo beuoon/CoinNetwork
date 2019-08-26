@@ -3,13 +3,23 @@
 #include <Eigen/Dense>
 #include <ctime>
 #include <cmath>
+#include <string>
+#include <vector>
 
 #include "LSTM/LSTM.h"
+#include "Bithumb.h"
 
 using namespace Eigen;
 using namespace std;
 
 int main() {
+	// cout << api_request((char*)"/public/ticker",(char*)"currency=BTC") << endl;
+	
+	Bithumb::API bithumbAPI;
+	auto histories = bithumbAPI.getTransactionHistory(20, "BTC");
+	for (int i = 0; i < histories.size(); i++)
+		cout << histories[i].date << endl;
+	
 	/*
 	srand((unsigned)time(NULL));
 	
@@ -52,7 +62,7 @@ int main() {
 	}
 	*/
 	
-	
+	/*
 	ifstream is("network");
 	LSTM network(is);
 	is.close();
@@ -71,7 +81,7 @@ int main() {
 	
 	cout << "After" << endl;
 	cout << network.predict(input)[0].transpose() << endl;
-	
+	*/
 	
 	return 0;
 }
