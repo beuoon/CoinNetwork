@@ -11,9 +11,18 @@ namespace Bithumb {
 		BID, ASK
 	};
 
-	class TransactionHistory {
+	class Order {
 	public:
-		TransactionHistory(map<string, string> data);
+		Order(TransactionType type, map<string, string> data);
+		
+		TransactionType type;
+		double unit;
+		int price;
+	};
+	
+	class Transaction {
+	public:
+		Transaction(map<string, string> data);
 		
 		string date;
 		TransactionType type;
@@ -21,9 +30,7 @@ namespace Bithumb {
 		int price;
 		double total;
 	};
-
-	class API {
-	public:
-		vector<TransactionHistory> getTransactionHistory(int count, string currency);
-	};
+	
+	map<string, vector<Order>> getOrderBook(int count, string currency);
+	vector<Transaction> getTransactionHistory(int count, string currency);
 }

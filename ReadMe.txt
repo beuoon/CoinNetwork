@@ -12,8 +12,19 @@
 보완할점:
  
 TODO:
- - save bid total, ask total, bid unit, ask unit, bid average, ask average of transaction history for each minute
- - save bid total, ask total, bit unit, ask unit, bid average, ask average of order book for each minute
- - predict bid hightly price of transaction history after n minutes
- 
- - maybe to better reward, use relative value (no absolute value)
+ - 의미가 없는 값들
+   거래 예약 내역의 unit: 예약 내역의 일부만 보여주기 때문에 의미가 없음
+   
+ - 의미가 있는 값들
+   거래 내역의 bid unit, ask unit: bid unit이 올라가면 싼 값에라도 팔려는 거고, ask unit이 올라가면 비싼 값을 주고도 사겠다는 뜻.
+   거래 내역의 판매 최저가, 판매 평균가, 구매 평균가, 구매 최고가의 변동률: 가격 변동을 의미
+   거래 예약 내역의 판매 최저가, 판매 평균가, 구매 평균가, 구매 최고가의 변동률: 가격 변동을 의미
+   
+ - 추측하려는 값
+   거래 내역의 판매 평균가 변동률
+   또는
+   거래 내역의 구매 최고가 변동률
+   
+ - 네트워크 구조
+   네트워크의 추측값을 다시 입력값으로 넣어 사용하기에는 입력 유형이 너무 다양하다.
+   한번에 n일을 추측하는 것으로 해야한다.

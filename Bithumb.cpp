@@ -2,6 +2,7 @@
 
 #include "xcoin_api.h"
 #include <stack>
+#include <iostream>
 
 using namespace std;
 
@@ -59,8 +60,14 @@ namespace Bithumb {
 		
 		return structMap;
 	}
+	
+	Order::Order(TransactionType type, map<string, string> data) {
+		this->type = type;
+		unit = parseFloat(data["quantity"]);
+		price = parseInt(data["price"]);
+	}
 
-	TransactionHistory::TransactionHistory(map<string, string> data) {
+	Transaction::Transaction(map<string, string> data) {
 		date = parseStr(data["transaction_date"]);
 		type = (parseStr(data["type"]) == "bid") ? TransactionType::BID : TransactionType::ASK;
 		unit = parseFloat(data["units_traded"]);
@@ -68,22 +75,47 @@ namespace Bithumb {
 		total = parseFloat(data["total"]);
 	}
 	
-	vector<TransactionHistory> API::getTransactionHistory(int count, string currency) {
-		string url("/public/transaction_history?count=");
-		string post("currency=");
-		url += to_string(count);
-		post += currency;
+	map<string, vector<Order>> getOrderBook(int count, string currency) {
+		string url("/public/orderbook/");
+		string post("count=");
+		url += currency;
+		post += to_string(count);
 		string result = api_request(url.c_str(), post.c_str());
 		
-		std::map<string, string> resultMap = parseStruct(result);
+		map<string, string> resultMap = parseStruct(result);
 		
-		vector<TransactionHistory> histories;
+		map<string, vector<Order>> book;
+		int status = parseInt(resultMap["status"]);
+		if (status != 0) return book;
+		
+		map<string, string> data = parseStruct(resultMap["data"]);
+		
+		vector<string> bids = parseList(data["bids"]);
+		for (int i = 0; i < bids.size(); i++)
+			book["bid"].push_back(Order(TransactionType::BID, parseStruct(bids[i])));
+		
+		vector<string> asks = parseList(data["asks"]);
+		for (int i = 0; i < asks.size(); i++)
+			book["ask"].push_back(Order(TransactionType::ASK, parseStruct(asks[i])));
+		
+		return book;
+	}
+	vector<Transaction> getTransactionHistory(int count, string currency) {
+		string url("/public/transaction_history/");
+		string post("count=");
+		url += currency;
+		post += to_string(count);
+		string result = api_request(url.c_str(), post.c_str());
+		
+		map<string, string> resultMap = parseStruct(result);
+		
+		vector<Transaction> histories;
 		int status = parseInt(resultMap["status"]);
 		if (status != 0) return histories;
 		
 		vector<string> data = parseList(resultMap["data"]);
 		for (int i = 0; i < data.size(); i++)
-			histories.push_back(TransactionHistory(parseStruct(data[i])));
+			histories.push_back(Transaction(parseStruct(data[i])));
 		
 		return histories;
 	}
