@@ -61,8 +61,7 @@ namespace Bithumb {
 		return structMap;
 	}
 	
-	Order::Order(TransactionType type, map<string, string> data) {
-		this->type = type;
+	Order::Order(map<string, string> data) {
 		unit = parseFloat(data["quantity"]);
 		price = parseInt(data["price"]);
 	}
@@ -73,6 +72,13 @@ namespace Bithumb {
 		unit = parseFloat(data["units_traded"]);
 		price = parseInt(data["price"]);
 		total = parseFloat(data["total"]);
+	}
+	
+	ostream& operator<<(ostream& os, const Transaction &tra) {
+		os << tra.date << " ";
+		os << ((tra.type == TransactionType::BID) ? "BID" : "ACK") << " ";
+		os << tra.unit << " " << tra.price << " " << tra.total << " ";
+		return os;
 	}
 	
 	map<string, vector<Order>> getOrderBook(int count, string currency) {
@@ -92,11 +98,11 @@ namespace Bithumb {
 		
 		vector<string> bids = parseList(data["bids"]);
 		for (int i = 0; i < bids.size(); i++)
-			book["bid"].push_back(Order(TransactionType::BID, parseStruct(bids[i])));
+			book["bid"].push_back(Order(parseStruct(bids[i])));
 		
 		vector<string> asks = parseList(data["asks"]);
 		for (int i = 0; i < asks.size(); i++)
-			book["ask"].push_back(Order(TransactionType::ASK, parseStruct(asks[i])));
+			book["ask"].push_back(Order(parseStruct(asks[i])));
 		
 		return book;
 	}

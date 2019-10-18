@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdio>
 #include <fstream>
 #include <Eigen/Dense>
@@ -7,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <mysql.h>
+#include <algorithm>
 
 #include "LSTM/LSTM.h"
 #include "Bithumb.h"
@@ -15,136 +18,106 @@
 using namespace Eigen;
 using namespace std;
 
+string tts(time_t t) { // Time To String
+	char str[250];
+	strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&t));
+	return str;
+}
+
 int main() {
-	// cout << api_request((char*)"/public/orderbook/BTC",(char*)"count=30") << endl;
-	
 	setenv("TZ", "GMT-9:00", 1);
 	
-	vector<Bithumb::Transaction> minuteHistories;
+	MYSQL mysql;
+	mysql_init(&mysql);
+	mysql_real_connect(&mysql, "localhost", "root", "root", "bitcoin", 0, NULL, 0);
 	
 	time_t startTime = time(NULL), endTime;
-	time_t prevTime = startTime;
-	
 	startTime += -(startTime%60) + 60; // 다음 분부터
 	endTime = startTime + 60;
-	
-	char timeStr[250];
-	strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localtime(&startTime));
-	cout << timeStr << endl;
-	
+	string startTimeStr = tts(startTime), endTimeStr = tts(endTime);
+
+	vector<Bithumb::Transaction> histories;
 	while (true) {
-		if (time(NULL) - prevTime < 10) { sleep(1); continue; }
-		prevTime = time(NULL);
+		sleep(1); // 1초마다
 		
-		vector<Bithumb::Transaction> histories = Bithumb::getTransactionHistory(100, "BTC");
-		if (histories.size() > 0) {
-			vector<Bithumb::Transaction>::iterator minIter = minuteHistories.find(histories[0]);
-			
-			for (minIter )
-			if (minIter == minuteHistories.end()) {
-				
+		vector<Bithumb::Transaction> newHistories = Bithumb::getTransactionHistory(100, "BTC");
+		vector<Bithumb::Transaction>::iterator iter;
+		
+		// 이전 데이터 삭제
+		for (iter = newHistories.begin(); iter != newHistories.end() && iter->date < startTimeStr; iter = newHistories.erase(iter));
+		
+		// 이미 있는 데이터 삭제
+		vector<Bithumb::Transaction>::iterator equIter = find(histories.begin(), histories.end(), *iter);
+		while (equIter != histories.end()) {
+			if (*equIter == *iter)
+				iter = newHistories.erase(iter);
+			equIter++;
+		}
+		
+		// 데이터 축적
+		histories.insert(equIter, iter, newHistories.end());
+		
+		// 1분이 지나면 DB에 저장
+		if (histories.size() == 0 || histories.back().date <= endTimeStr) continue;
+		
+		// 거래 내역
+		double trans_ask_min = 0, trans_ask_avrg = 0, trans_bid_max = 0, trans_bid_avrg = 0;
+		double askUnit = 0, bidUnit = 0;
+		for (iter = histories.begin(); iter != histories.end(); iter = histories.erase(iter)) {
+			if (iter->type == Bithumb::TransactionType::ASK) {
+				if (trans_ask_min == 0 || trans_ask_min > iter->price)
+					trans_ask_min = iter->price;
+				trans_ask_avrg += iter->total;
+				askUnit += iter->unit;
 			}
-			
+			else {
+				if (trans_bid_max == 0 || trans_bid_max < iter->price)
+					trans_bid_max = iter->price;
+				trans_bid_avrg += iter->total;
+				bidUnit += iter->unit;
+			}
 		}
+		trans_ask_avrg /= askUnit;
+		trans_bid_avrg /= bidUnit;
 		
+		// 주문 내역
+		map<string, vector<Bithumb::Order>> orderBook = Bithumb::getOrderBook(30, "BTC");
+		vector<Bithumb::Order> askOrder = orderBook["ask"];
+		vector<Bithumb::Order> bidOrder = orderBook["bid"];
+		double order_ask_min = 0, order_ask_avrg = 0, order_bid_max, order_bid_avrg = 0;
+		askUnit = 0, bidUnit = 0;
 		
-		if (prevTime >= endTime) {
-			startTime = endTime;
-			endTime += 60;
+		for (int i = 0; i < askOrder.size(); i++) {
+			if (order_ask_min == 0 || order_ask_min > askOrder[i].price)
+				order_ask_min = askOrder[i].price;
+			order_ask_avrg += askOrder[i].price * askOrder[i].unit;
+			askUnit += askOrder[i].unit;
 		}
+		order_ask_avrg /= askUnit;
 		
-		break;
+		for (int i = 0; i < bidOrder.size(); i++) {
+			if (order_bid_max == 0 || order_bid_max < bidOrder[i].price)
+				order_bid_max = bidOrder[i].price;
+			order_bid_avrg += bidOrder[i].price * bidOrder[i].unit;
+			bidUnit += bidOrder[i].unit;
+		}
+		order_bid_avrg /= bidUnit;
+		
+		// DB 전송
+		cout << startTimeStr << " ~ " << endTimeStr << endl;
+		char query[1000];
+		sprintf(query, "insert into history_table values('%s', %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf)", startTimeStr.c_str(),
+				trans_ask_min, trans_ask_avrg, trans_bid_max, trans_bid_avrg,
+				order_ask_min, order_ask_avrg, order_bid_max, order_bid_avrg);
+		mysql_query(&mysql, query);
+		
+		startTimeStr = endTimeStr;
+		endTime += 60;
+		endTimeStr = tts(endTime);
 	}
 	
+	mysql_close(&mysql);
 	
-	/*
-	setenv("TZ", "GMT-9:00", 1);
-	char oneTimeStr[250], twoTimeStr[250];
-	time_t t = time(NULL);
-	t -= t % 60;
-	strftime(oneTimeStr, sizeof(oneTimeStr), "%Y-%m-%d %H:%M:%S", localtime(&t));
-	t -= 60;
-	strftime(twoTimeStr, sizeof(twoTimeStr), "%Y-%m-%d %H:%M:%S", localtime(&t));
-	
-	cout << twoTimeStr << " <= ~ < " << oneTimeStr << endl;
-	
-	
-	
-	auto histories = Bithumb::getTransactionHistory(100, "BTC");
-	
-	double bidTotal = 0, askTotal = 0, bidUnit = 0, askUnit = 0;
-	int minPriceIndex = -1, maxPriceIndex = -1;
-	for (int i = 0; i < histories.size(); i++) {
-		if (!(twoTimeStr <= histories[i].date && histories[i].date < oneTimeStr)) continue;
-		
-		if (histories[i].type == Bithumb::TransactionType::BID) {
-			bidUnit += histories[i].unit;
-			bidTotal += histories[i].total;
-			
-			if (maxPriceIndex == -1) maxPriceIndex = i;
-			if (histories[i].price > histories[maxPriceIndex].price)
-				maxPriceIndex = i;
-		}
-		else {
-			askUnit += histories[i].unit;
-			askTotal += histories[i].total;
-			
-			if (minPriceIndex == -1) minPriceIndex = i;
-			if (histories[i].price < histories[minPriceIndex].price)
-				minPriceIndex = i;
-		}
-	}
-	int bidAvrg = bidTotal / bidUnit;
-	int askAvrg = askTotal / askUnit;
-	
-	int bidMaxPrice = (maxPriceIndex != -1) ? histories[maxPriceIndex].price : 0;
-	int askMinPrice = (minPriceIndex != -1) ? histories[minPriceIndex].price : 0;
-	
-	printf("구입 유닛: %lf\n", bidUnit);
-	printf("구입 평균가: %d\n", bidAvrg);
-	printf("구입 최고가: %d\n", bidMaxPrice);
-	
-	printf("판매 유닛: %lf\n", askUnit);
-	printf("판매 평균가: %d\n", askAvrg);
-	printf("판매 최저가: %d\n", askMinPrice);
-	
-	
-	
-	
-	
-	
-	
-	std::map<string, vector<Bithumb::Order>> book = Bithumb::getOrderBook(30, "BTC");
-	
-	vector<Bithumb::Order> bidBook = book["bid"];
-	double bidOrderTotal = 0, bidOrderUnit = 0;
-	for (int i = 0; i < bidBook.size(); i++) {
-		bidOrderTotal += bidBook[i].unit * bidBook[i].price;
-		bidOrderUnit += bidBook[i].unit;
-		
-		if (bidBook[i].price > bidBook[maxPriceIndex].price)
-			maxPriceIndex = i;
-	}
-	int bidOrderAvrg = bidOrderTotal / bidOrderUnit;
-	int bidOrderMaxPrice = bidBook[maxPriceIndex].price;
-	printf("구입 대기 평균가: %d\n", bidOrderAvrg);
-	printf("구입 대기 최고가: %d\n", bidOrderMaxPrice);
-	
-	vector<Bithumb::Order> askBook = book["ask"];
-	double askOrderTotal = 0, askOrderUnit = 0;
-	for (int i = 0; i < askBook.size(); i++) {
-		askOrderTotal += askBook[i].unit * askBook[i].price;
-		askOrderUnit += askBook[i].unit;
-		
-		if (askBook[i].price < askBook[minPriceIndex].price)
-			minPriceIndex = i;
-	}
-	int askOrderAvrg = askOrderTotal / askOrderUnit;
-	int askOrderMinPrice = askBook[minPriceIndex].price;
-	printf("판매 대기 평균가: %d\n", askOrderAvrg);
-	printf("판매 대기 최저가: %d\n", askOrderMinPrice);
-	
-	*/
 	
 	/*
 	srand((unsigned)time(NULL));

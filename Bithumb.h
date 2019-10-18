@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <iostream>
 
 using namespace std;
 
@@ -13,9 +14,8 @@ namespace Bithumb {
 
 	class Order {
 	public:
-		Order(TransactionType type, map<string, string> data);
+		Order(map<string, string> data);
 		
-		TransactionType type;
 		double unit;
 		int price;
 	};
@@ -24,12 +24,24 @@ namespace Bithumb {
 	public:
 		Transaction(map<string, string> data);
 		
+		bool operator==(const Transaction& trans) {
+			if (date == trans.date &&
+			   type == trans.type &&
+			   unit == trans.unit &&
+			   price == trans.price &&
+			   total == trans.total)
+				return true;
+			return false;
+		}
+		
 		string date;
 		TransactionType type;
 		double unit;
 		int price;
 		double total;
 	};
+	
+	ostream& operator<<(ostream& os, const Transaction &tra);
 	
 	map<string, vector<Order>> getOrderBook(int count, string currency);
 	vector<Transaction> getTransactionHistory(int count, string currency);

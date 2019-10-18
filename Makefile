@@ -1,10 +1,9 @@
 TARGET = coinPredictor
-CPPFLAGS = -std=c++11
-TARGETFLAGS =  -lcurl -lcrypto
+CPPFLAGS = -I/usr/include/mysql/ -std=c++11 -lmysqlclient -lcurl -lcrypto
 OBJECTS = Main.o LSTM/Util.o LSTM/OutputLayer.o LSTM/HiddenLayer.o LSTM/LSTM.o xcoin_api.o Bithumb.o
 
 $(TARGET): $(OBJECTS)
-	$(CXX) -o $@ $^ $(CPPFLAGS) $(TARGETFLAGS)
+	$(CXX) -o $@ $^ $(CPPFLAGS)
 
 clean :
 	rm $(OBJECTS) $(TARGET)
