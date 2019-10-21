@@ -156,20 +156,19 @@ void hash_bin2hex(char *out, const unsigned char *in, int in_len)
 	}
 }
 
-int hash_sha512(char *hash, const unsigned char *in, const char *secret)
+void hash_sha512(char *hash, const unsigned char *in, const char *secret)
 {
-	HMAC_CTX ctx;
-	HMAC_CTX_init( &ctx );
+	HMAC_CTX *ctx = HMAC_CTX_new();
 	
 	unsigned int len = 128;
 	char *out;
 	out = (char *)malloc( sizeof(char) * len );
 
 	// using sha512
-	HMAC_Init_ex( &ctx, secret, strlen(secret), EVP_sha512(), NULL );
-	HMAC_Update( &ctx, in, strlen((char*)in) );
-	HMAC_Final( &ctx, (unsigned char*)out, &len );
-	HMAC_CTX_cleanup( &ctx );
+	HMAC_Init_ex( ctx, secret, strlen(secret), EVP_sha512(), NULL );
+	HMAC_Update( ctx, in, strlen((char*)in) );
+	HMAC_Final( ctx, (unsigned char*)out, &len );
+	HMAC_CTX_free(ctx);
 
 	hash_bin2hex(hash,(unsigned char*)out, 128/2);
 }
