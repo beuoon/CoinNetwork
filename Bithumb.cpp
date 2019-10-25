@@ -81,18 +81,18 @@ namespace Bithumb {
 		return os;
 	}
 	
-	map<string, vector<Order>> getOrderBook(int count, string currency) {
+	bool getOrderBook(int count, string currency, map<string, vector<Order>>& book) {
 		string url("/public/orderbook/");
 		string post("count=");
 		url += currency;
 		post += to_string(count);
-		string result = api_request(url.c_str(), post.c_str());
+		const char *result = api_request(url.c_str(), post.c_str());
+		if (result == NULL) return false;
 		
-		map<string, string> resultMap = parseStruct(result);
+		map<string, string> resultMap = parseStruct(string(result));
 		
-		map<string, vector<Order>> book;
 		int status = parseInt(resultMap["status"]);
-		if (status != 0) return book;
+		if (status != 0) return false;
 		
 		map<string, string> data = parseStruct(resultMap["data"]);
 		
@@ -104,25 +104,25 @@ namespace Bithumb {
 		for (int i = 0; i < asks.size(); i++)
 			book["ask"].push_back(Order(parseStruct(asks[i])));
 		
-		return book;
+		return true;
 	}
-	vector<Transaction> getTransactionHistory(int count, string currency) {
+	bool getTransactionHistory(int count, string currency, vector<Transaction>& history) {
 		string url("/public/transaction_history/");
 		string post("count=");
 		url += currency;
 		post += to_string(count);
-		string result = api_request(url.c_str(), post.c_str());
+		const char *result = api_request(url.c_str(), post.c_str());
+		if (result == NULL) return false;
 		
-		map<string, string> resultMap = parseStruct(result);
+		map<string, string> resultMap = parseStruct(string(result));
 		
-		vector<Transaction> histories;
 		int status = parseInt(resultMap["status"]);
-		if (status != 0) return histories;
+		if (status != 0) return false;
 		
 		vector<string> data = parseList(resultMap["data"]);
 		for (int i = 0; i < data.size(); i++)
-			histories.push_back(Transaction(parseStruct(data[i])));
+			history.push_back(Transaction(parseStruct(data[i])));
 		
-		return histories;
+		return true;
 	}
 }

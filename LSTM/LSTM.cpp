@@ -3,35 +3,27 @@
 #include <iostream>
 
 LSTM::LSTM(int _inputLayerNum, int _hiddenLayerNum, int _outputLayerNum, 
-		   int _inputLayerSize, int _hiddenLayerSize, int _outputLayerSize,
-		   bool _bContinuous) {
+		   int _inputLayerSize, int _hiddenLayerSize, int _outputLayerSize) {
 	inputLayerNum = _inputLayerNum;
 	hiddenLayerNum = _hiddenLayerNum;
 	outputLayerNum = _outputLayerNum;
 	inputLayerSize = _inputLayerSize;
 	hiddenLayerSize = _hiddenLayerSize;
 	outputLayerSize = _outputLayerSize;
-	bContinuous = _bContinuous;
 	
 	for (int i = 0; i < hiddenLayerNum; i++)
 		hiddenLayers.push_back(new HiddenLayer(inputLayerSize, hiddenLayerSize));
 	for (int i = 0; i < outputLayerNum; i++)
 		outputLayers.push_back(new OutputLayer(hiddenLayerSize, outputLayerSize));
-	
-	initContinuous();
 }
-LSTM::LSTM(istream &is) {
-	is >> inputLayerNum >> hiddenLayerNum >> outputLayerNum;
-	is >> inputLayerSize >> hiddenLayerSize >> outputLayerSize;
-	
-	is >> bContinuous;
+LSTM::LSTM(NetworkManager &in) {
+	in >> inputLayerNum >> hiddenLayerNum >> outputLayerNum;
+	in >> inputLayerSize >> hiddenLayerSize >> outputLayerSize;
 	
 	for (int i = 0; i < hiddenLayerNum; i++)
-		hiddenLayers.push_back(new HiddenLayer(inputLayerSize, hiddenLayerSize, is));
+		hiddenLayers.push_back(new HiddenLayer(inputLayerSize, hiddenLayerSize, in));
 	for (int i = 0; i < outputLayerNum; i++)
-		outputLayers.push_back(new OutputLayer(hiddenLayerSize, outputLayerSize, is));
-	
-	initContinuous();
+		outputLayers.push_back(new OutputLayer(hiddenLayerSize, outputLayerSize, in));
 }
 LSTM::~LSTM() {
 	for (int i = 0; i < hiddenLayerNum; i++)
@@ -61,20 +53,14 @@ double LSTM::train(vector<VectorXd> _inputs, vector<VectorXd> _labels) {
 }
 	
 vector<VectorXd> LSTM::forward(vector<VectorXd> _inputs) {
-	if (!bContinuous)
-		initContinuous();
-	
-	VectorXd h_prev = this->h_prev;
-	VectorXd c_prev = this->c_prev;
+	VectorXd h_prev(hiddenLayerSize);
+	VectorXd c_prev(hiddenLayerSize);
 	
 	// Hidden Layer
 	for (int i = 0; i < hiddenLayerNum; i++) {
 		VectorXd x = (i < inputLayerNum) ? _inputs[i] : VectorXd::Zero(inputLayerSize);
 		
-		// cout << "h: ";
-		// cout << x.transpose() << " / " << h_prev.transpose() << " / " << c_prev.transpose() << " → "; 
 		hiddenLayers[i]->forward(x, h_prev, c_prev);
-		// cout << h_prev.transpose() << " / " << c_prev.transpose() << endl;
 		
 		if (i == 0) {
 			this->h_prev = h_prev;
@@ -87,10 +73,7 @@ vector<VectorXd> LSTM::forward(vector<VectorXd> _inputs) {
 	for (int i = 0, j = hiddenLayerNum - outputLayerNum; i < outputLayerNum; i++, j++) {
 		VectorXd h = hiddenLayers[j]->getH();
 		
-		// cout << "o: ";
-		// cout << h.transpose() << " → "; 
 		outputs.push_back(outputLayers[i]->forward(h));
-		// cout << outputs.back() << endl;
 	}
 
 	return outputs;
@@ -104,4 +87,16 @@ void LSTM::backward(vector<VectorXd> _deltas) {
 		
 		hiddenLayers[i]->backward(dy, dh_next, dc_next);
 	}
+}
+
+NetworkManager& operator<<(NetworkManager& out, const LSTM &network) {
+	out << network.inputLayerNum << " " << network.hiddenLayerNum << " " << network.outputLayerNum << "\n";
+	out << network.inputLayerSize << " " << network.hiddenLayerSize << " " << network.outputLayerSize << "\n";
+	
+	for (int i = 0; i < network.hiddenLayerNum; i++)
+		out << *network.hiddenLayers[i] << "\n";
+	for (int i = 0; i < network.outputLayerNum; i++)
+		out << *network.outputLayers[i] << "\n";
+	
+	return out;
 }

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <algorithm>
 #include <thread>
+#include <mutex>
 
 #include <Eigen/Dense>
 #include <mysql.h>
@@ -23,10 +24,40 @@ string tts(time_t t) { // Time To String
 	return str;
 }
 
-const char *dbHost = "localhost";
-const char *dbUser = "root";
-const char *dbPW = "root";
-const char *dbDB = "bitcoin";
+class MySQL {
+public:
+	MySQL() {
+		mysql_init(&mysql);
+		mysql_real_connect(&mysql, "localhost", "root", "root", "bitcoin", 0, NULL, 0);
+	}
+	~MySQL() {
+		mysql_close(&mysql);
+	}
+	
+	int query(const char *str) {
+		lock_guard<mutex> lg(mtx);
+		return mysql_query(&mysql, str);
+	}
+	MYSQL_RES *storeResult() {
+		mtx.lock();
+		res = mysql_store_result(&mysql);
+		return res;
+	}
+	void freeResult() {
+		mysql_free_result(res);
+		mtx.unlock();
+	}
+	
+
+private:
+	MYSQL mysql;
+	MYSQL_ROW row;
+	MYSQL_RES *res;
+	
+	static mutex mtx;
+};
+mutex MySQL::mtx;
+MySQL mysql;
 
 void saveData(bool *bPower) {
 	setenv("TZ", "GMT-9:00", 1);
@@ -37,24 +68,17 @@ void saveData(bool *bPower) {
 	string startTimeStr = tts(startTime), endTimeStr = tts(endTime);
 	
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
-	int firstNumber, lastNumber, count = 0;
-	string firstDatetime, lastDatetime;
+	int firstNumber, count = 0;
 	
-	MYSQL mysql;
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	
-	mysql_init(&mysql);
-	mysql_real_connect(&mysql, dbHost, dbUser, dbPW, dbDB, 0, NULL, 0);
 	
-	mysql_query(&mysql, "select number from history order by datetime desc limit 1");
-	res = mysql_store_result(&mysql);
-	row = mysql_fetch_row(res);
-	
-	if (row == NULL)	firstNumber = 1;
-	else				firstNumber = atoi(row[0]) + 1;
-	cout << "firstNumber: " << firstNumber << endl;
-	firstDatetime = startTimeStr;
+	mysql.query("select number from history order by datetime desc limit 1");
+	if ((res = mysql.storeResult()) == NULL) return ;
+	if ((row = mysql_fetch_row(res)) == NULL)	firstNumber = 1;
+	else										firstNumber = atoi(row[0]) + 1;
+	mysql.freeResult();
 
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	double prev_trans_ask_min = 0, prev_trans_ask_avrg = 0, prev_trans_ask_unit = 0;
@@ -68,7 +92,9 @@ void saveData(bool *bPower) {
 		sleep(1); // 1초마다
 		time_t fetchTime = time(NULL);
 		
-		vector<Bithumb::Transaction> newHistories = Bithumb::getTransactionHistory(100, "BTC");
+		vector<Bithumb::Transaction> newHistories;
+		Bithumb::getTransactionHistory(100, "BTC", newHistories);
+		
 		vector<Bithumb::Transaction>::iterator iter;
 		
 		// 이전 데이터 삭제
@@ -117,9 +143,13 @@ void saveData(bool *bPower) {
 		if (trans_bid_unit != 0) trans_bid_avrg /= trans_bid_unit;
 		
 		// 주문 내역
-		map<string, vector<Bithumb::Order>> orderBook = Bithumb::getOrderBook(30, "BTC");
-		vector<Bithumb::Order> askOrder = orderBook["ask"];
-		vector<Bithumb::Order> bidOrder = orderBook["bid"];
+		map<string, vector<Bithumb::Order>> orderBook;
+		vector<Bithumb::Order> askOrder;
+		vector<Bithumb::Order> bidOrder;
+		if (Bithumb::getOrderBook(30, "BTC", orderBook)) {
+			askOrder = orderBook["ask"];
+			bidOrder = orderBook["bid"];
+		}
 		
 		double order_ask_min = 0, order_ask_avrg = 0, order_ask_unit = 0;
 		double order_bid_max = 0, order_bid_avrg = 0, order_bid_unit = 0;
@@ -145,8 +175,6 @@ void saveData(bool *bPower) {
 			startTimeStr = endTimeStr;
 			endTime += 60;
 			endTimeStr = tts(endTime);
-			
-			firstDatetime = startTimeStr;
 			
 			continue;
 		}
@@ -185,7 +213,7 @@ void saveData(bool *bPower) {
 				trans_ask_min, trans_ask_avrg, trans_ask_unit,
 				trans_bid_max, trans_bid_avrg, trans_bid_unit,
 				order_ask_min, order_ask_avrg, order_bid_max, order_bid_avrg);
-		mysql_query(&mysql, query);
+		mysql.query(query);
 		
 		// 학습 데이터
 		if (count > 0) {
@@ -193,7 +221,7 @@ void saveData(bool *bPower) {
 					trans_ask_min_rate, trans_ask_avrg_rate, trans_ask_unit,
 					trans_bid_max_rate, trans_bid_avrg_rate, trans_bid_unit,
 					order_ask_min_rate, order_ask_avrg_rate, order_bid_max_rate, order_bid_avrg_rate);
-			mysql_query(&mysql, query);
+			mysql.query(query);
 		}
 		
 		//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
@@ -223,114 +251,7 @@ void saveData(bool *bPower) {
 		
 		count++;
 	}
-	
-	// 데이터 간격 전송
-	lastNumber = firstNumber + count - 1;
-	lastDatetime = tts(endTime - 120);
-	
-	cout << "lastNumber: " << lastNumber << endl;
-	
-	if (firstNumber <= lastNumber) {
-		char query[1000];
-		sprintf(query, "insert into history_info values(%d, %d, '%s', '%s')",
-					firstNumber, lastNumber,
-					firstDatetime.c_str(), lastDatetime.c_str());
-		mysql_query(&mysql, query);
-	}
-	
-	mysql_close(&mysql);
 }
-
-void _setTrainData() { // 간격 구분 안되어있음
-	MYSQL mysql;
-	MYSQL_RES *res;
-	MYSQL_ROW row;
-	
-	mysql_init(&mysql);
-	mysql_real_connect(&mysql, dbHost, dbUser, dbPW, dbDB, 0, NULL, 0);
-	
-	mysql_query(&mysql, "select * from history");
-	res = mysql_store_result(&mysql);
-	
-	double prev_trans_ask_min = 0, prev_trans_ask_avrg = 0, prev_trans_ask_unit = 0;
-	double prev_trans_bid_max = 0, prev_trans_bid_avrg = 0, prev_trans_bid_unit = 0;
-	double prev_order_ask_min = 0, prev_order_ask_avrg = 0, prev_order_bid_max = 0, prev_order_bid_avrg = 0;
-	
-	double trans_ask_min = 0, trans_ask_avrg = 0, trans_ask_unit = 0;
-	double trans_bid_max = 0, trans_bid_avrg = 0, trans_bid_unit = 0;
-	double order_ask_min = 0, order_ask_avrg = 0;
-	double order_bid_max = 0, order_bid_avrg = 0;
-	
-	double trans_ask_min_rate = 1, trans_ask_avrg_rate = 1;
-	double trans_bid_max_rate = 1, trans_bid_avrg_rate = 1;
-	double order_ask_min_rate = 1, order_ask_avrg_rate = 1;
-	double order_bid_max_rate = 1, order_bid_avrg_rate = 1;
-	
-	row = mysql_fetch_row(res);
-	prev_trans_ask_min = atof(row[2]);
-	prev_trans_ask_avrg = atof(row[3]);
-	prev_trans_ask_unit = atof(row[4]);
-	prev_trans_bid_max = atof(row[5]);
-	prev_trans_bid_avrg = atof(row[6]);
-	prev_trans_bid_unit = atof(row[7]);
-	prev_order_ask_min = atof(row[8]);
-	prev_order_ask_avrg = atof(row[9]);
-	prev_order_bid_max = atof(row[10]);
-	prev_order_bid_avrg = atof(row[11]);
-	
-	int cnt = 1;
-	while ((row = mysql_fetch_row(res)) != NULL) {
-		trans_ask_min = atof(row[2]);
-		trans_ask_avrg = atof(row[3]);
-		trans_ask_unit = atof(row[4]);
-		trans_bid_max = atof(row[5]);
-		trans_bid_avrg = atof(row[6]);
-		trans_bid_unit = atof(row[7]);
-		order_ask_min = atof(row[8]);
-		order_ask_avrg = atof(row[9]);
-		order_bid_max = atof(row[10]);
-		order_bid_avrg = atof(row[11]);
-		
-		if (trans_ask_unit != 0) {
-			trans_ask_min_rate = trans_ask_min/prev_trans_ask_min;
-			trans_ask_avrg_rate = trans_ask_avrg/prev_trans_ask_avrg;
-			
-			prev_trans_ask_min = trans_ask_min;
-			prev_trans_ask_avrg = trans_ask_avrg;
-			prev_trans_ask_unit = trans_ask_unit;
-		}
-		if (trans_bid_unit != 0) {
-			trans_bid_max_rate = trans_bid_max/prev_trans_bid_max;
-			trans_bid_avrg_rate = trans_bid_avrg/prev_trans_bid_avrg;
-			
-			prev_trans_bid_max = trans_bid_max;
-			prev_trans_bid_avrg = trans_bid_avrg;
-			prev_trans_bid_unit = trans_bid_unit;
-		}
-		
-		order_ask_min_rate = order_ask_min/prev_order_ask_min;
-		order_ask_avrg_rate = order_ask_avrg/prev_order_ask_avrg;
-			
-		prev_order_ask_min = order_ask_min;
-		prev_order_ask_avrg = order_ask_avrg;
-		
-		order_bid_max_rate = order_bid_max/prev_order_bid_max;
-		order_bid_avrg_rate = order_bid_avrg/prev_order_bid_avrg;
-		
-		prev_order_bid_max = order_bid_max;
-		prev_order_bid_avrg = order_bid_avrg;
-	
-		char query[1000];
-		sprintf(query, "insert into train_data values(%d, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf)", ++cnt,
-				trans_ask_min_rate, trans_ask_avrg_rate, trans_ask_unit,
-				trans_bid_max_rate, trans_bid_avrg_rate, trans_bid_unit,
-				order_ask_min_rate, order_ask_avrg_rate, order_bid_max_rate, order_bid_avrg_rate);
-		mysql_query(&mysql, query);
-	}
-	
-	mysql_close(&mysql);
-}
-
 
 class CoinNetwork {
 public:
@@ -340,14 +261,41 @@ public:
  		inputSize = 10, hiddenSize = 10, outputSize = 1;
 		
 		network = new LSTM(inputNum, hiddenNum, outputNum, inputSize, hiddenSize, outputSize); // 60분의 데이터를 주면 이후 30분의 데이터를 추측
-		lastTrainDataNumber = 1;
-		fetchTrainData();
+		trainDataNum = 1000;
+		
+		bLoop = true;
 	}
 	~CoinNetwork() {
 		delete network;
 	}
 	
-	void train() {
+	void loop() {
+		loadNetwork();
+		cout << "network loop start" << endl;
+		time_t fetchTime = time(NULL);
+		fetchTrainData();
+		
+		while (bLoop) {
+			double error = train();
+			cout << "Error: " << error << endl;
+			sleep(1);
+			
+			if (time(NULL) - fetchTime >= 1800) { // 30분마다 학습 데이터 변경
+				fetchTrainData();
+				fetchTime = time(NULL);
+			}
+		}
+		
+		cout << "network loop end" << endl;
+		saveNetwork();
+	}
+	void switchLoop(bool _bLoop) { bLoop = _bLoop; }
+	
+	// void predict();
+	double train() {
+		double totalError = 0;
+		int cnt = 0;
+		
 		for (int i = 0; i < trainDataArr.size(); i++) {
 			if (trainDataArr[i].size() < inputNum+outputNum) continue;
 			
@@ -363,33 +311,42 @@ public:
 					label.push_back(data);
 				}
 				
-				network->train(input, label);
+				totalError += network->train(input, label);
+				cnt++;
 				
 				firstIter++;
 				middleIter++;
 				lastIter++;
 			}
 		}
+		
+		return totalError;
 	}
-	// void predict();
 	
 	void fetchTrainData() {
-		MYSQL mysql;
 		MYSQL_RES *res;
 		MYSQL_ROW row;
 		
-		mysql_init(&mysql);
-		mysql_real_connect(&mysql, dbHost, dbUser, dbPW, dbDB, 0, NULL, 0);
+		mysql.query("select number from train_data order by number desc limit 1");
+		if ((res = mysql.storeResult()) == NULL) return;
+		if ((row = mysql_fetch_row(res)) == NULL) return;
+		int number = atoi(row[0]);
+		
+		mysql.freeResult();
+		
+		number = rand() % (number - trainDataNum);
 		
 		char query[1000];
-		sprintf(query, "select * from train_data where number > %d", lastTrainDataNumber);
-		mysql_query(&mysql, query);
+		sprintf(query, "select * from train_data where number >= %d limit %d", number, trainDataNum);
+		mysql.query(query);
 		
-		res = mysql_store_result(&mysql);
+		if ((res = mysql.storeResult()) == NULL) return;
 		
-		if (lastTrainDataNumber == 1)
-			trainDataArr.push_back(vector<VectorXd>());
-		int arrCnt = trainDataArr.size()-1;
+		trainDataArr.clear();
+		trainDataArr.push_back(vector<VectorXd>());
+		
+		int arrCnt = 0;
+		int lastTrainDataNumber = 1;
 		
 		while ((row = mysql_fetch_row(res)) != NULL) {
 			int number = atoi(row[0]);
@@ -403,14 +360,39 @@ public:
 			for (int i = 0; i < inputSize; i++)
 				data(i) = atof(row[i+2]);
 			trainDataArr[arrCnt].push_back(data);
-			
 		}
 	
-		mysql_close(&mysql);
+		mysql.freeResult();
+	}
+	
+	void saveNetwork() {
+		NetworkManager mgr;
+		mgr << *network;
+		const char *str = mgr.save();
 		
-		cout << "trainData: " << trainDataArr.size() << endl;
-		for (int i = 0; i < trainDataArr.size(); i++)
-			cout << " - [" << i << "]: " << trainDataArr[i].size() << endl;
+		// DB 저장
+		char query[200000];
+		sprintf(query, "insert into network values(NULL, '%s', '%s')", tts(time(NULL)).c_str(), str);
+		mysql.query(query);
+	}
+	void loadNetwork() {
+		// DB 가져오기
+		MYSQL_RES *res;
+		MYSQL_ROW row;
+		mysql.query("select data from network order by id desc limit 1");
+		
+		if ((res = mysql.storeResult()) == NULL) return;
+		if ((row = mysql_fetch_row(res)) == NULL) return;
+		char *str = row[0];
+		
+		NetworkManager mgr;
+		mgr.load(str);
+		
+		if (network != nullptr)
+			delete network;
+		network = new LSTM(mgr);
+		
+		mysql.freeResult();
 	}
 
 private:
@@ -419,29 +401,33 @@ private:
 	int inputSize, hiddenSize, outputSize;
 	
 	vector<vector<VectorXd>> trainDataArr;
-	int lastTrainDataNumber;
+	int trainDataNum;
+	
+	bool bLoop;
 };
 
+
 int main() {
-	CoinNetwork network;
+	cout << "시작" << endl;
+	srand((unsigned)time(NULL));
 	
-	network.train();
+	CoinNetwork network;
+	bool bPower_saveData = true;
+	
+	thread tSaveData(saveData, &bPower_saveData);
+	thread tNetwork(&CoinNetwork::loop, &network);
+	
+	// 파일의 유무로 종료하는 루틴
+	while (access("./stop", 0) == -1) sleep(1);
+	
+	bPower_saveData = false;
+	network.switchLoop(false);
+	tSaveData.join();
+	tNetwork.join();
 	
 	cout << "종료" << endl;
 	
 	/*
-	bool bPower_saveData = true;
-	
-	thread tSaveData(saveData, &bPower_saveData);
-	
-	// 파일의 유무로 종료하는 루틴
-	while (access("./stop", 0) == -1) sleep(1);
-	bPower_saveData = false;
-	tSaveData.join();
-	*/
-	
-	/*
-	srand((unsigned)time(NULL));
 	
 	int inputSize = 1, outputSize = 1;
 	int inputNum = 3, outputNum = 1;

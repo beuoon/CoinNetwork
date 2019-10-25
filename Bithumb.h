@@ -43,6 +43,6 @@ namespace Bithumb {
 	
 	ostream& operator<<(ostream& os, const Transaction &tra);
 	
-	map<string, vector<Order>> getOrderBook(int count, string currency);
-	vector<Transaction> getTransactionHistory(int count, string currency);
+	bool getOrderBook(int count, string currency, map<string, vector<Order>>& book);
+	bool getTransactionHistory(int count, string currency, vector<Transaction>& history);
 }

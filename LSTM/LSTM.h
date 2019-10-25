@@ -8,6 +8,7 @@
 
 #include "HiddenLayer.h"
 #include "OutputLayer.h"
+#include "NetworkManager.h"
 
 using namespace std;
 using namespace Eigen;
@@ -15,18 +16,14 @@ using namespace Eigen;
 class LSTM {
 public:
 	LSTM(int _inputLayerNum, int _hiddenLayerNum, int _outputLayerNum, 
-		 int _inputLayerSize, int _hiddenLayerSize, int _outputLayerSize,
-		 bool _bContinuous = false);
-	LSTM(istream &in);
+		 int _inputLayerSize, int _hiddenLayerSize, int _outputLayerSize);
+	LSTM(NetworkManager &in);
 	~LSTM();
 	
 	vector<VectorXd> predict(vector<VectorXd> _inputs) { return forward(_inputs); }
 	double train(vector<VectorXd> _inputs, vector<VectorXd> _labels);
 	
-	void initContinuous() {
-		h_prev = VectorXd::Zero(hiddenLayerSize);
-		c_prev = VectorXd::Zero(hiddenLayerSize);
-	}
+	friend NetworkManager& operator<<(NetworkManager& out, const LSTM &network);
 	
 private:
 	vector<VectorXd> forward(vector<VectorXd> _inputs);
@@ -39,6 +36,5 @@ private:
 	vector<HiddenLayer *> hiddenLayers;
 	vector<OutputLayer *> outputLayers;
 	
-	bool bContinuous;
 	VectorXd h_prev, c_prev;
 };

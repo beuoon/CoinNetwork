@@ -13,7 +13,7 @@ OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize) {
 	
 	weight *= weightLimit;
 }
-OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, istream &is) {
+OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, NetworkManager &in) {
 	hiddenLayerSize = _hiddenLayerSize;
 	outputLayerSize = _outputLayerSize;
 	
@@ -22,7 +22,7 @@ OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, istream &is
 	// load weight
 	for (int i = 0; i < outputLayerSize; i++) {
 		for (int j = 0; j <= hiddenLayerSize; j++)
-			is >> weight(i, j);
+			in >> weight(i, j);
 	}
 }
 
@@ -44,4 +44,12 @@ VectorXd OutputLayer::backward(VectorXd _delta) {
 		weight.row(i) += -ETA * _delta[i] * h;
 	
 	return dh;
+}
+
+NetworkManager& operator<<(NetworkManager& out, const OutputLayer &layer) {// load weight
+	for (int i = 0; i < layer.outputLayerSize; i++) {
+		for (int j = 0; j <= layer.hiddenLayerSize; j++)
+			out << layer.weight(i, j) << " ";
+	}
+	return out;
 }

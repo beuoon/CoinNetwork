@@ -22,7 +22,7 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize) {
 	hhWeight *= hhWeightLimit;
 	bias *= biasLimit;
 }
-HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, istream &is) {
+HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManager &in) {
 	inputLayerSize = _inputLayerSize;
 	hiddenLayerSize = _hiddenLayerSize;
     
@@ -33,18 +33,18 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, istream &is)
 	// load xhWeight
 	for (int i = 0; i < inputLayerSize; i++) {
 		for (int j = 0; j < hiddenLayerSize; j++)
-			is >> xhWeight(i, j);
+			in >> xhWeight(i, j);
 	}
 	
 	// load hhWeight
 	for (int i = 0; i < hiddenLayerSize; i++) {
 		for (int j = 0; j < hiddenLayerSize; j++)
-			is >> hhWeight(i, j);
+			in >> hhWeight(i, j);
 	}
 	
 	// load bias
 	for (int i = 0; i < hiddenLayerSize; i++)
-		is >> bias(i);
+		in >> bias(i);
 }
 
 void HiddenLayer::forward(VectorXd _x, VectorXd &_h_prev, VectorXd &_c_prev) {
@@ -92,4 +92,24 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd &_dh_next, VectorXd &_dc_next)
 	
 	_dh_next = dh_prev;
 	_dc_next = dc_prev;
+}
+
+NetworkManager& operator<<(NetworkManager& out, const HiddenLayer &layer) {
+	// save xhWeight
+	for (int i = 0; i < layer.inputLayerSize; i++) {
+		for (int j = 0; j < layer.hiddenLayerSize; j++)
+			out << layer.xhWeight(i, j) << " ";
+	}
+	
+	// save hhWeight
+	for (int i = 0; i < layer.hiddenLayerSize; i++) {
+		for (int j = 0; j < layer.hiddenLayerSize; j++)
+			out << layer.hhWeight(i, j) << " ";
+	}
+	
+	// save bias
+	for (int i = 0; i < layer.hiddenLayerSize; i++)
+		out << layer.bias(i) << " ";
+	
+	return out;
 }
