@@ -1,41 +1,20 @@
 #pragma once
 
 #include <string>
-#include <stdlib.h>
-
 
 using namespace std;
 
 class NetworkManager {
 public:
-	NetworkManager() {
-	}
-	~NetworkManager() {}
+	void load(char *str);
+	const char *save();
 	
-	void load(char *str) { loadStr = str; }
-	const char *save() { return saveStr.c_str(); }
+	NetworkManager& operator>>(int &i);
+	NetworkManager& operator>>(double &d);
 	
-	NetworkManager& operator>>(int &i) {
-		i = strtol(loadStr, &loadStr, 10);
-		return *this;
-	}
-	NetworkManager& operator>>(double &d) {
-		d = strtod(loadStr, &loadStr);
-		return *this;
-	}
-	
-	NetworkManager& operator<<(const char *str) {
-		saveStr += str;
-		return *this;
-	}
-	NetworkManager& operator<<(const int &i) {
-		saveStr += to_string(i);
-		return *this;
-	}
-	NetworkManager& operator<<(const double &d) {
-		saveStr += to_string(d);
-		return *this;
-	}
+	NetworkManager& operator<<(const char *str);
+	NetworkManager& operator<<(const int &i);
+	NetworkManager& operator<<(const double &d);
 
 private:
 	char *loadStr;

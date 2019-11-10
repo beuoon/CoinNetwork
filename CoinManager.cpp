@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <string>
 
+#include <cmath> // DEBUG
+
 CoinManager::CoinManager() {
 	inputNum = 60, outputNum = 30;
 	hiddenNum = inputNum + outputNum;
@@ -13,6 +15,7 @@ CoinManager::CoinManager() {
 	trainDataNum = 1000;
 	
 	bLoop = true;
+	bTrain = true;
 }
 CoinManager::~CoinManager() {
 	delete network;
@@ -27,21 +30,22 @@ void CoinManager::loop() {
 	while (bLoop) {
 		sleep(1); // 1초 지연
 		
-		double error = train();
-		cout << "Error: " << error << endl;
-		
-		if (time(NULL) - fetchTime >= 1800) { // 30분마다 학습 데이터 변경
-			fetchTrainData();
-			fetchTime = time(NULL);
-		}
-		if (time(NULL) - saveTime >= 86400) { // 하루마다 신경망 저장
-			saveNetwork();
-			saveTime = time(NULL);
+		if (bTrain) {
+			double error = train();
+			cout << "Error: " << error << endl;
+			
+			if (time(NULL) - fetchTime >= 1800) { // 30분마다 학습 데이터 변경
+				fetchTrainData();
+				fetchTime = time(NULL);
+			}
+			if (time(NULL) - saveTime >= 86400) { // 하루마다 신경망 저장
+				saveNetwork();
+				saveTime = time(NULL);
+			}
 		}
 	}
 	
 	cout << "network loop end" << endl;
-	// saveNetwork();
 }
 
 // void CoinManager::predict();
@@ -65,6 +69,18 @@ double CoinManager::train() {
 			}
 			
 			totalError += network->train(input, label);
+			
+			// DEBUG
+			if (isnan(totalError)) {
+				cout << "NaN 발생" << endl;
+				NetworkManager mgr;
+				mgr << *network;
+				const char *networkStr = mgr.save();
+				
+				cout << networkStr << endl << endl;
+				getchar();
+			}
+			
 			cnt++;
 			
 			firstIter++;
@@ -112,7 +128,7 @@ void CoinManager::fetchTrainData() {
 		
 		VectorXd data(inputSize);
 		for (int i = 0; i < inputSize; i++)
-			data(i) = atof(row[i+2]);
+			data(i) = atof(row[i+1]);
 		trainDataArr[arrCnt].push_back(data);
 	}
 	mysql->freeResult();

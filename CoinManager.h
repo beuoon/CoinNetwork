@@ -18,6 +18,8 @@ public:
 	
 	void loop();
 	void switchLoop(bool _bLoop) { bLoop = _bLoop; }
+	void switchTrain(bool _bTrain) { bTrain = _bTrain; }
+	bool getTrainStatus() { return bTrain; }
 	
 	// void predict();
 	double train();
@@ -35,5 +37,5 @@ private:
 	vector<vector<VectorXd>> trainDataArr;
 	int trainDataNum;
 	
-	bool bLoop;
+	bool bLoop, bTrain;
 };

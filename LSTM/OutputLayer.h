@@ -21,11 +21,13 @@ public:
 	friend NetworkManager& operator<<(NetworkManager& out, const OutputLayer &layer);
 	
 private:
-	const double ETA = 0.005;
+	const double ETA = 0.001, EPSILON = 0.00000001;
+	const double B1 = 0.9, B2 = 0.999;
 	
 	int hiddenLayerSize, outputLayerSize;
 	
 	VectorXd h;
 	
 	MatrixXd weight;
+	MatrixXd m, v;
 };

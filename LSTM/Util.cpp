@@ -9,7 +9,33 @@ VectorXd mul(const VectorXd &_v1, const VectorXd &_v2) {
 	
 	return v;
 }
-
+VectorXd sqrt(const VectorXd &_v) {
+	int size = _v.size();
+	
+	VectorXd v(size);
+	for (int i = 0; i < size; i++)
+		v[i] = sqrt(_v[i]);
+	
+	return v;
+}
+VectorXd reciproc(const VectorXd &_v) {
+	int size = _v.size();
+	
+	VectorXd v(size);
+	for (int i = 0; i < size; i++)
+		v[i] = 1/_v[i];
+	
+	return v;
+}
+const VectorXd operator+(const VectorXd& _v, const double &d) {
+	int size = _v.size();
+	
+	VectorXd v(size);
+	for (int i = 0; i < size; i++)
+		v[i] = _v[i] + d;
+	
+	return v;
+}
 
 double sigmoid(const double &_d) {
 	return 1 / (1 + exp(-_d));

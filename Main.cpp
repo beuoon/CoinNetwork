@@ -2,14 +2,19 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
+
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+
 #include "DataSaver.h"
 #include "CoinManager.h"
 
+using namespace rapidjson;
 using namespace std;
 
 class Server {
@@ -50,8 +55,8 @@ public:
 		char sendBuff[BUFF_SIZE], recvBuff[BUFF_SIZE];
 		
 		// Thread Start
-		DataSaver dataSaver;
-		CoinManager coinMgr;
+		dataSaver.switchLoop(true);
+		coinMgr.switchLoop(true);
 		
 		thread tDataSaver(&DataSaver::loop, &dataSaver);
 		thread tNetwork(&CoinManager::loop, &coinMgr);
@@ -66,17 +71,45 @@ public:
 			}
 			printf("클라이언트 연결\n");
 			
+			
+			//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
+			// 수신
 			memset(recvBuff, 0, sizeof(recvBuff));
 			int len = read(client_socket, recvBuff, BUFF_SIZE);
 			printf("수신: %s\n", recvBuff);
 			
-			strcpy(sendBuff, "ok");
+			Document document;
+			document.Parse(recvBuff);
+			
+			string result;
+			
+			if (!document.IsObject()) // json이 아님
+				result = error(ErrorType::INVALID_STRING);
+			else if (!document.HasMember("method") || !document["method"].IsString()) // method가 없음
+				result = error(ErrorType::NO_METHOD);
+			else {
+				const char *method = document["method"].GetString();
+				if (!strcmp(method, "control")) // 기능 조작
+					result = control(document);
+				else if (!strcmp(method, "status")) // 작동 상태
+					result = status(document);
+				else // 잘못된 method
+					result = error(ErrorType::INVALID_METHOD);
+			}
+			
+			//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
+			// 송신
+			memset(sendBuff, 0, sizeof(sendBuff));
+			strncpy(sendBuff, result.c_str(), BUFF_SIZE);
+			cout << "송신(" << strlen(sendBuff) << "): " << sendBuff << endl;
 			write(client_socket, sendBuff, strlen(sendBuff)+1);
+			
+			//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 			usleep(1000);
 			
 			::close(client_socket);
 			printf("클라이언트 연결 종료\n");
-		} while(strcmp(recvBuff, "end"));
+		} while(strcmp(recvBuff, "Power:OFF"));
 		
 		printf("서버 종료\n");
 	
@@ -87,6 +120,119 @@ public:
 		tDataSaver.join();
 		tNetwork.join();
 	}
+private:
+	enum class ErrorType {
+		INVALID_STRING,
+		NO_METHOD,
+		INVALID_METHOD,
+		INVALID_DATA
+	};
+	string error(ErrorType et) {
+		Document sd;
+		sd.SetObject();
+
+		Document::AllocatorType& allocator = sd.GetAllocator();
+		
+		Value val(kObjectType);
+		
+		string status = "failed";
+		val.SetString(status.c_str(), static_cast<SizeType>(status.length()), allocator);
+		sd.AddMember("status", val, allocator);
+		
+		string data;
+		switch (et) {
+		case ErrorType::INVALID_STRING:
+			data = "invalid string: it's not json object";
+			break;
+		case ErrorType::NO_METHOD:
+			data = "no method: it need method";
+			break;
+		case ErrorType::INVALID_METHOD:
+			data = "invalid method: this method isn't supported";
+			break;
+		case ErrorType::INVALID_DATA:
+			data = "invalid data";
+			break;
+		}
+		
+		val.SetString(data.c_str(), static_cast<SizeType>(data.length()), allocator);
+		sd.AddMember("data", val, allocator);
+
+		// Convert JSON document to string
+		rapidjson::StringBuffer strbuf;
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(strbuf);
+		sd.Accept(writer);
+		
+		string str(strbuf.GetString());
+		return str;
+	}
+	string control(Document& rd) {
+		// 수신 메세지
+		Value obj = rd["data"].GetObject();
+		
+		const char* func = obj["func"].GetString();
+		const char* power = obj["power"].GetString();
+		
+		if (!strcmp(func, "train")) { // 학습
+			if (!strcmp(power, "on")) {
+				coinMgr.switchTrain(true);
+				cout << "학습 재개" << endl;
+			}
+			else if (!strcmp(power, "off")) {
+				coinMgr.switchTrain(false);
+				cout << "학습 중지" << endl;
+			}
+		}
+		else
+			return error(ErrorType::INVALID_DATA);
+		
+		// 송신 메세지
+		Document sd;
+		sd.SetObject();
+
+		Document::AllocatorType& allocator = sd.GetAllocator();
+
+		Value val(kObjectType);
+		
+		string status = "succeed";
+		val.SetString(status.c_str(), static_cast<SizeType>(status.length()), allocator);
+		sd.AddMember("status", val, allocator);
+
+		// Convert JSON document to string
+		rapidjson::StringBuffer strbuf;
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(strbuf);
+		sd.Accept(writer);
+		
+		string str(strbuf.GetString());
+		return str;
+	}
+	string status(Document &rd) {
+		// 송신 메세지
+		Document sd;
+		sd.SetObject();
+
+		Document::AllocatorType& allocator = sd.GetAllocator();
+
+		Value obj(kObjectType);
+		Value val(kObjectType);
+		
+		string status = "succeed";
+		val.SetString(status.c_str(), static_cast<SizeType>(status.length()), allocator);
+		sd.AddMember("status", val, allocator);
+		
+		val.SetBool(coinMgr.getTrainStatus());
+		obj.AddMember("train", val, allocator);
+		
+		sd.AddMember("data", obj, allocator);
+
+		// Convert JSON document to string
+		rapidjson::StringBuffer strbuf;
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(strbuf);
+		sd.Accept(writer);
+		
+		string str(strbuf.GetString());
+		return str;
+	}
 
 private:
 	int server_socket;
@@ -94,6 +240,9 @@ private:
 	const int PORT = 4000;
 	const int CLIENT_MAX_NUM = 1;
 	const int BUFF_SIZE = 500;
+	
+	DataSaver dataSaver;
+	CoinManager coinMgr;
 };
 
 

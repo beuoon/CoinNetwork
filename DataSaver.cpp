@@ -37,7 +37,7 @@ void DataSaver::loop() {
 			continue;
 		}
 		
-		// sendDB();
+		sendDB();
 		
 		savePrevData();
 		//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
