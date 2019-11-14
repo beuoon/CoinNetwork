@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <Eigen/Dense>
+#include <mutex>
 
 #include "LSTM/NetworkManager.h"
 #include "LSTM/LSTM.h"
@@ -21,21 +22,25 @@ public:
 	void switchTrain(bool _bTrain) { bTrain = _bTrain; }
 	bool getTrainStatus() { return bTrain; }
 	
-	// void predict();
+	bool predict(string datetime, vector<double> &result);
 	double train();
-	
-	void fetchTrainData();
 	
 	void saveNetwork();
 	void loadNetwork();
+	
+private:
+	int fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &lastDataNumber);
 
 private:
-	LSTM *network;
-	int inputNum, hiddenNum, outputNum;
-	int inputSize, hiddenSize, outputSize;
+	const int INPUT_NUM = 60, HIDDEN_NUM = 90, OUTPUT_NUM = 30;
+	const int INPUT_SIZE = 10, HIDDEN_SIZE = 10, OUTPUT_SIZE = 1;
 	
-	vector<vector<VectorXd>> trainDataArr;
-	int trainDataNum;
+	const int TRAIN_DATA_NUM = 200;
+	const int NETWORK_SAVE_INTERVAL = 43200; // 12시간
+	
+	LSTM *network;
 	
 	bool bLoop, bTrain;
+	
+	mutex mtx;
 };

@@ -40,6 +40,7 @@ void DataSaver::loop() {
 		sendDB();
 		
 		savePrevData();
+		
 		//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 		startTimeStr = endTimeStr;
 		endTime += timeInterval;
@@ -57,14 +58,15 @@ void DataSaver::setting() {
 	
 	// firstNumber 설정
 	MySQL *mysql = MySQL::getInstance();
-	MYSQL_RES *res;
 	MYSQL_ROW row;
 	
 	mysql->query("select number from history order by datetime desc limit 1");
-	if ((res = mysql->storeResult()) == NULL) 		firstNumber = 1;
-	else if ((row = mysql_fetch_row(res)) == NULL)	firstNumber = 1;
-	else											firstNumber = atoi(row[0]) + 1;
-	mysql->freeResult();
+	if (mysql->storeResult() == NULL) 			firstNumber = 1;
+	else {
+		if ((row = mysql->fetchRow()) == NULL)	firstNumber = 1;
+		else									firstNumber = atoi(row[0]) + 1;
+		mysql->freeResult();
+	}
 	
 	// 기타
 	count = 0;
@@ -186,12 +188,13 @@ void DataSaver::sendDB() {
 	// DB 전송
 	cout << startTimeStr << " ~ " << endTimeStr << endl;
 	
+	MySQL *mysql = MySQL::getInstance();
 	char query[1000];
 	sprintf(query, "insert into history values(NULL, '%s', %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf)", startTimeStr.c_str(),
 			trans_ask_min, trans_ask_avrg, trans_ask_unit,
 			trans_bid_max, trans_bid_avrg, trans_bid_unit,
 			order_ask_min, order_ask_avrg, order_bid_max, order_bid_avrg);
-	MySQL::getInstance()->query(query);
+	mysql->query(query);
 	
 	// 학습 데이터
 	if (count > 0) {
@@ -199,7 +202,7 @@ void DataSaver::sendDB() {
 				trans_ask_min_rate, trans_ask_avrg_rate, trans_ask_unit/100,
 				trans_bid_max_rate, trans_bid_avrg_rate, trans_bid_unit/100,
 				order_ask_min_rate, order_ask_avrg_rate, order_bid_max_rate, order_bid_avrg_rate);
-		MySQL::getInstance()->query(query);
+		mysql->query(query);
 	}
 }
 

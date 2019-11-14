@@ -49,3 +49,5 @@ private:
 	double prev_trans_bid_max, prev_trans_bid_avrg, prev_trans_bid_unit;
 	double prev_order_ask_min, prev_order_ask_avrg, prev_order_bid_max, prev_order_bid_avrg;	
 };
+
+string tts(time_t t);

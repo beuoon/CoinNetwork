@@ -15,6 +15,8 @@ public:
 
 	int query(const char *str);
 	MYSQL_RES *storeResult();
+	MYSQL_ROW fetchRow();
+	my_ulonglong getRowNum();
 	void freeResult();
 
 private:

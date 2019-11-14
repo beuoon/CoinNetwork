@@ -7,12 +7,7 @@
 #include <cmath> // DEBUG
 
 CoinManager::CoinManager() {
-	inputNum = 60, outputNum = 30;
-	hiddenNum = inputNum + outputNum;
-	inputSize = 10, hiddenSize = 10, outputSize = 1;
-	
-	network = new LSTM(inputNum, hiddenNum, outputNum, inputSize, hiddenSize, outputSize); // 60분의 데이터를 주면 이후 30분의 데이터를 추측
-	trainDataNum = 1000;
+	network = new LSTM(INPUT_NUM, HIDDEN_NUM, OUTPUT_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE); // 60분의 데이터를 주면 이후 30분의 데이터를 추측
 	
 	bLoop = true;
 	bTrain = true;
@@ -24,8 +19,7 @@ CoinManager::~CoinManager() {
 void CoinManager::loop() {
 	loadNetwork();
 	cout << "network loop start" << endl;
-	time_t fetchTime = time(NULL), saveTime = time(NULL);
-	fetchTrainData();
+	time_t prevSaveTime = time(NULL);
 	
 	while (bLoop) {
 		sleep(1); // 1초 지연
@@ -34,13 +28,10 @@ void CoinManager::loop() {
 			double error = train();
 			cout << "Error: " << error << endl;
 			
-			if (time(NULL) - fetchTime >= 1800) { // 30분마다 학습 데이터 변경
-				fetchTrainData();
-				fetchTime = time(NULL);
-			}
-			if (time(NULL) - saveTime >= 86400) { // 하루마다 신경망 저장
+			// 신경망 저장
+			if (time(NULL) - prevSaveTime >= NETWORK_SAVE_INTERVAL) {
 				saveNetwork();
-				saveTime = time(NULL);
+				prevSaveTime = time(NULL);
 			}
 		}
 	}
@@ -48,95 +39,151 @@ void CoinManager::loop() {
 	cout << "network loop end" << endl;
 }
 
-// void CoinManager::predict();
+bool CoinManager::predict(string datetime, vector<double> &result) {
+	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
+	// Input data 가져오기
+	MySQL *mysql = MySQL::getInstance();
+	MYSQL_ROW row;
+	
+	char query[1000];
+	
+	sprintf(query, "select number from history where datetime = '%s'", datetime.c_str());
+	mysql->query(query);
+	if (mysql->storeResult() == NULL) return false;
+	if ((row = mysql->fetchRow()) == NULL) {
+		mysql->freeResult();
+		return false;
+	}
+	int dataNumber = atoi(row[0]);
+	mysql->freeResult();
+	
+	sprintf(query, "select * from train_data where number >= %d limit %d", dataNumber, INPUT_NUM);
+	mysql->query(query);
+	if (mysql->storeResult() == NULL) return false;
+	if (mysql->getRowNum() != INPUT_NUM) {
+		mysql->freeResult();
+		return false;
+	}
+	
+	vector<VectorXd> input;
+	while ((row = mysql->fetchRow()) != NULL) {
+		int number = atoi(row[0]);
+		
+		if (dataNumber+1 < number) return false;
+		dataNumber = number;
+		
+		VectorXd data(INPUT_SIZE);
+		for (int i = 0; i < INPUT_SIZE; i++)
+			data(i) = atof(row[i+1]);
+		input.push_back(data);
+	}
+	mysql->freeResult();
+	
+	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
+	// 학습
+	mtx.lock();
+	vector<VectorXd> output = network->predict(input);
+	mtx.unlock();
+	
+	// 데이터 변경
+	result.clear();
+	for (int i = 0; i < output.size(); i++)
+		result.push_back(output[i](0));
+	
+	return true;
+}
 double CoinManager::train() {
 	double totalError = 0;
-	int cnt = 0;
+	int lastDataNumber = 1, dataNum;
+	vector<vector<VectorXd>> trainDataArr(1);
 	
-	for (int i = 0; i < trainDataArr.size(); i++) {
-		if (trainDataArr[i].size() < inputNum+outputNum) continue;
-			
-		vector<VectorXd>::iterator firstIter = trainDataArr[i].begin();
-		vector<VectorXd>::iterator middleIter = firstIter + inputNum;
-		vector<VectorXd>::iterator lastIter = middleIter + outputNum;
+	do {
+		dataNum = fetchTrainData(trainDataArr, lastDataNumber);
 		
-		while (lastIter != trainDataArr[i].end()) {
-			vector<VectorXd> input(firstIter, middleIter);
-			vector<VectorXd> label;
-			for (auto iter = middleIter; iter != lastIter; iter++) {
-				VectorXd data(1); data << (*iter)(0); // trans_ask_min_rate
-				label.push_back(data);
-			}
-			
-			totalError += network->train(input, label);
-			
-			// DEBUG
-			if (isnan(totalError)) {
-				cout << "NaN 발생" << endl;
-				NetworkManager mgr;
-				mgr << *network;
-				const char *networkStr = mgr.save();
+		for (int i = 0; i < trainDataArr.size(); i++) {
+			if (trainDataArr[i].size() < HIDDEN_NUM) continue;
 				
-				cout << networkStr << endl << endl;
-				getchar();
+			vector<VectorXd>::iterator firstIter = trainDataArr[i].begin();
+			vector<VectorXd>::iterator middleIter = firstIter + INPUT_NUM;
+			vector<VectorXd>::iterator lastIter = middleIter + OUTPUT_NUM;
+			
+			mtx.lock();
+			while (lastIter != trainDataArr[i].end()) {
+				vector<VectorXd> input(firstIter, middleIter);
+				vector<VectorXd> label;
+				for (auto iter = middleIter; iter != lastIter; iter++) {
+					VectorXd data(1); data << (*iter)(0); // trans_ask_min_rate
+					label.push_back(data);
+				}
+				
+				totalError += network->train(input, label);
+				
+				// DEBUG
+				if (isnan(totalError)) {
+					cout << "NaN 발생" << endl;
+					NetworkManager mgr;
+					mgr << *network;
+					const char *networkStr = mgr.save();
+					
+					cout << networkStr << endl << endl;
+					getchar();
+				}
+				
+				firstIter++;
+				middleIter++;
+				lastIter++;
 			}
-			
-			cnt++;
-			
-			firstIter++;
-			middleIter++;
-			lastIter++;
+			mtx.unlock();
 		}
-	}
+	} while (dataNum == TRAIN_DATA_NUM);
 	
 	return totalError;
 }
 	
-void CoinManager::fetchTrainData() {
+int CoinManager::fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &lastDataNumber) {
+	// 이전 데이터 중 마지막 배열의 HIDDEN_NUM - 1개를 제외하고 삭제
+	if (!trainDataArr.empty()) {
+		vector<VectorXd> temp = trainDataArr.back();
+		
+		if (temp.size() >= HIDDEN_NUM) {
+			int eraseNum = temp.size()-HIDDEN_NUM+1;
+			temp.erase(temp.begin(), temp.begin()+eraseNum);
+		}
+		
+		trainDataArr.clear();
+		trainDataArr.push_back(temp);
+	}
+	
+	// 데이터 가져오기
 	MySQL *mysql = MySQL::getInstance();
-	MYSQL_RES *res;
 	MYSQL_ROW row;
 	
-	mysql->query("select number from train_data order by number desc limit 1");
-	if ((res = mysql->storeResult()) == NULL) return;
-	if ((row = mysql_fetch_row(res)) == NULL) return;
-	int totalDataNum = atoi(row[0]);
-	
-	mysql->freeResult();
-	
-	int dataNumber = rand() % (totalDataNum - trainDataNum);
-	
 	char query[1000];
-	sprintf(query, "select * from train_data where number >= %d limit %d", dataNumber, trainDataNum);
+	sprintf(query, "select * from train_data where number > %d limit %d", lastDataNumber, TRAIN_DATA_NUM);
 	mysql->query(query);
 	
-	if ((res = mysql->storeResult()) == NULL) return;
+	if (mysql->storeResult() == NULL) return 0;
 	
-	trainDataArr.clear();
-	trainDataArr.push_back(vector<VectorXd>());
+	int arrIndex = 0, dataCount = 0;
 	
-	int arrCnt = 0;
-	int lastTrainDataNumber = dataNumber;
-		
-	while ((row = mysql_fetch_row(res)) != NULL) {
+	while ((row = mysql->fetchRow()) != NULL) {
 		int number = atoi(row[0]);
-		if (lastTrainDataNumber+1 < number) {
+		if (lastDataNumber+1 < number) {
 			trainDataArr.push_back(vector<VectorXd>());
-			arrCnt++;
+			arrIndex++;
 		}
-		lastTrainDataNumber = number;
+		lastDataNumber = number;
 		
-		VectorXd data(inputSize);
-		for (int i = 0; i < inputSize; i++)
+		VectorXd data(INPUT_SIZE);
+		for (int i = 0; i < INPUT_SIZE; i++)
 			data(i) = atof(row[i+1]);
-		trainDataArr[arrCnt].push_back(data);
+		trainDataArr[arrIndex].push_back(data);
+		
+		dataCount++;
 	}
 	mysql->freeResult();
-		
-	cout << "TrainDataNumber: " << dataNumber << endl;
-	for (int i = 0; i < trainDataArr.size(); i++)
-		printf("[%d]: %lu\n", i, trainDataArr[i].size());
-	cout << endl;
+	
+	return dataCount;
 }
 	
 void CoinManager::saveNetwork() {
@@ -155,12 +202,15 @@ void CoinManager::saveNetwork() {
 }
 void CoinManager::loadNetwork() {
 	// DB 가져오기
-	MYSQL_RES *res;
+	MySQL *mysql = MySQL::getInstance();
 	MYSQL_ROW row;
-	MySQL::getInstance()->query("select data from network order by id desc limit 1");
+	mysql->query("select data from network order by id desc limit 1");
 
-	if ((res = MySQL::getInstance()->storeResult()) == NULL) return;
-	if ((row = mysql_fetch_row(res)) == NULL) return;
+	if (mysql->storeResult() == NULL) return;
+	if ((row = mysql->fetchRow()) == NULL) {
+		mysql->freeResult();
+		return;
+	}
 	char *str = row[0];
 	
 	NetworkManager mgr;
@@ -170,5 +220,5 @@ void CoinManager::loadNetwork() {
 		delete network;
 	network = new LSTM(mgr);
 	
-	MySQL::getInstance()->freeResult();
+	mysql->freeResult();
 }

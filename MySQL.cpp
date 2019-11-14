@@ -19,8 +19,15 @@ int MySQL::query(const char *str) {
 }
 MYSQL_RES *MySQL::storeResult() {
 	mtx.lock();
-	res = mysql_store_result(&mysql);
+	if ((res = mysql_store_result(&mysql)) == NULL)
+		mtx.unlock();
 	return res;
+}
+MYSQL_ROW MySQL::fetchRow() {
+	return mysql_fetch_row(res);
+}
+my_ulonglong MySQL::getRowNum() {
+	return mysql_num_rows(res);
 }
 void MySQL::freeResult() {
 	mysql_free_result(res);
