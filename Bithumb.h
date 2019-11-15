@@ -4,7 +4,9 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <rapidjson/document.h>
 
+using namespace rapidjson;
 using namespace std;
 
 namespace Bithumb {
@@ -14,7 +16,7 @@ namespace Bithumb {
 
 	class Order {
 	public:
-		Order(map<string, string> data);
+		Order(const Value& data);
 		
 		double unit;
 		int price;
@@ -22,7 +24,7 @@ namespace Bithumb {
 	
 	class Transaction {
 	public:
-		Transaction(map<string, string> data);
+		Transaction(const Value& data);
 		
 		bool operator==(const Transaction& trans) {
 			if (date == trans.date &&
@@ -40,8 +42,6 @@ namespace Bithumb {
 		int price;
 		double total;
 	};
-	
-	ostream& operator<<(ostream& os, const Transaction &tra);
 	
 	bool getOrderBook(int count, string currency, map<string, vector<Order>>& book);
 	bool getTransactionHistory(int count, string currency, vector<Transaction>& history);

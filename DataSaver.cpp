@@ -79,7 +79,7 @@ void DataSaver::setting() {
 
 void DataSaver::fetchTransactionData() {
 	vector<Bithumb::Transaction> newHistories;
-	Bithumb::getTransactionHistory(100, "BTC", newHistories);
+	if (!Bithumb::getTransactionHistory(100, "BTC", newHistories)) return ;
 	
 	vector<Bithumb::Transaction>::iterator iter;
 
@@ -132,12 +132,10 @@ void DataSaver::processOrderData() {
 	
 	// 주문 정보 가져오기
 	map<string, vector<Bithumb::Order>> orderBook;
-	vector<Bithumb::Order> askOrder;
-	vector<Bithumb::Order> bidOrder;
-	if (Bithumb::getOrderBook(30, "BTC", orderBook)) {
-		askOrder = orderBook["ask"];
-		bidOrder = orderBook["bid"];
-	}
+	if (!Bithumb::getOrderBook(30, "BTC", orderBook)) return ;
+	
+	vector<Bithumb::Order> askOrder = orderBook["ask"];
+	vector<Bithumb::Order> bidOrder = orderBook["bid"];
 	
 	// 매도
 	for (int i = 0; i < askOrder.size(); i++) {

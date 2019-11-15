@@ -7,78 +7,17 @@
 using namespace std;
 
 namespace Bithumb {
-	string parseStr(string str) {
-		int si = str.find('"') + 1;
-		int ei = str.rfind('"');
-		return str.substr(si, ei-si);
-	}
-	int parseInt(string str) {
-		int si = str.find('"') + 1;
-		int ei = str.rfind('"');
-		return atoi(str.substr(si, ei-si).c_str());
-	}
-	double parseFloat(string str) {
-		int si = str.find('"') + 1;
-		int ei = str.rfind('"');
-		return atof(str.substr(si, ei-si).c_str());
-	}
-	
-	vector<string> parseList(string str) {
-		vector<string> elements;
-		
-		stack<char> bracketStack;
-		int i = 0, len = str.length()-1;
-		int si = 1;
-		while (++i < len) {
-			if (str[i] == ',' && bracketStack.empty()) {
-				elements.push_back(str.substr(si, i-si));
-				si = i+1;
-			}
-			
-			if (str[i] == '[' || str[i] == '{')
-				bracketStack.push(str[i]);
-			if (str[i] == ']' && bracketStack.top() == '[' ||
-				str[i] == '}' && bracketStack.top() == '{' )
-				bracketStack.pop();
-		}
-		elements.push_back(str.substr(si, i-si));
-		
-		return elements;
-	}
-	std::map<string, string> parseStruct(string str) {
-		vector<string> elements = parseList(str);
-		
-		std::map<string, string> structMap;
-		for (int i = 0; i < elements.size(); i++) {
-			string element = elements[i];
-			int index = element.find(':');
-			string key = parseStr(element.substr(0, index));
-			string value = element.substr(index+1);
-			
-			structMap[key] = value;
-		}
-		
-		return structMap;
-	}
-	
-	Order::Order(map<string, string> data) {
-		unit = parseFloat(data["quantity"]);
-		price = parseInt(data["price"]);
+	Order::Order(const Value& data) {
+		unit = atof(data["quantity"].GetString());
+		price = atof(data["price"].GetString());
 	}
 
-	Transaction::Transaction(map<string, string> data) {
-		date = parseStr(data["transaction_date"]);
-		type = (parseStr(data["type"]) == "bid") ? TransactionType::BID : TransactionType::ASK;
-		unit = parseFloat(data["units_traded"]);
-		price = parseInt(data["price"]);
-		total = parseFloat(data["total"]);
-	}
-	
-	ostream& operator<<(ostream& os, const Transaction &tra) {
-		os << tra.date << " ";
-		os << ((tra.type == TransactionType::BID) ? "BID" : "ACK") << " ";
-		os << tra.unit << " " << tra.price << " " << tra.total << " ";
-		return os;
+	Transaction::Transaction(const Value& data) {
+		date = data["transaction_date"].GetString();
+		type = (!strcmp(data["type"].GetString(), "ask")) ? TransactionType::ASK : TransactionType::BID;
+		unit = atof(data["units_traded"].GetString());
+		price = atof(data["price"].GetString());
+		total = atof(data["total"].GetString());
 	}
 	
 	bool getOrderBook(int count, string currency, map<string, vector<Order>>& book) {
@@ -89,20 +28,20 @@ namespace Bithumb {
 		const char *result = api_request(url.c_str(), post.c_str());
 		if (result == NULL) return false;
 		
-		map<string, string> resultMap = parseStruct(string(result));
+		Document document;
+		document.Parse(result);
+		if (!document.IsObject()) return false;
 		
-		int status = parseInt(resultMap["status"]);
-		if (status != 0) return false;
+		const char *status = document["status"].GetString();
+		if (strcmp(status, "0000")) return false;
 		
-		map<string, string> data = parseStruct(resultMap["data"]);
+		const Value& data = document["data"].GetObject();
 		
-		vector<string> bids = parseList(data["bids"]);
-		for (int i = 0; i < bids.size(); i++)
-			book["bid"].push_back(Order(parseStruct(bids[i])));
+		for (const auto& order : data["bids"].GetArray())
+			book["bid"].push_back(Order(order));
 		
-		vector<string> asks = parseList(data["asks"]);
-		for (int i = 0; i < asks.size(); i++)
-			book["ask"].push_back(Order(parseStruct(asks[i])));
+		for (const auto& order : data["asks"].GetArray())
+			book["ask"].push_back(Order(order));
 		
 		return true;
 	}
@@ -114,14 +53,17 @@ namespace Bithumb {
 		const char *result = api_request(url.c_str(), post.c_str());
 		if (result == NULL) return false;
 		
-		map<string, string> resultMap = parseStruct(string(result));
+		Document document;
+		document.Parse(result);
+		if (!document.IsObject()) return false;
 		
-		int status = parseInt(resultMap["status"]);
-		if (status != 0) return false;
+		const char *status = document["status"].GetString();
+		if (strcmp(status, "0000")) return false;
 		
-		vector<string> data = parseList(resultMap["data"]);
-		for (int i = 0; i < data.size(); i++)
-			history.push_back(Transaction(parseStruct(data[i])));
+		Value data = document["data"].GetArray();
+		
+		for (const Value& trans : data.GetArray())
+			history.push_back(Transaction(trans));
 		
 		return true;
 	}
