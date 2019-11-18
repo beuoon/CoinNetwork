@@ -1,5 +1,6 @@
 #include "HiddenLayer.h"
 
+#include <cstdio>
 #include <iostream>
 
 HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize) {
@@ -8,18 +9,18 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize) {
     
     double xhWeightLimit = sqrt(6.0/inputLayerSize);	// He 초기화 사용 변수
     double hhWeightLimit = sqrt(6.0/hiddenLayerSize);	// He 초기화 사용 변수
-	double biasLimit = sqrt(6.0/(inputLayerSize + hiddenLayerSize));
 	
 	xhWeight = MatrixXd::Random(hiddenLayerSize, inputLayerSize) * xhWeightLimit;
 	hhWeight = MatrixXd::Random(hiddenLayerSize, hiddenLayerSize) * hhWeightLimit;
-	bias = VectorXd::Random(hiddenLayerSize) * biasLimit;
+	bias = VectorXd::Zero(hiddenLayerSize);
 	
-	// xhM.resize(hiddenLayerSize, inputLayerSize);
-	// xhV.resize(hiddenLayerSize, inputLayerSize);
-	// hhM.resize(hiddenLayerSize, hiddenLayerSize);
-	// hhV.resize(hiddenLayerSize, hiddenLayerSize);
-	// bM.resize(hiddenLayerSize);
-	// bV.resize(hiddenLayerSize);
+	// Adam parameter
+	xhM = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
+	xhV = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
+	hhM = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
+	hhV = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
+	bM = VectorXd::Zero(hiddenLayerSize);
+	bV = VectorXd::Zero(hiddenLayerSize);
 }
 HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManager &in) {
 	inputLayerSize = _inputLayerSize;
@@ -45,12 +46,13 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManag
 	for (int i = 0; i < hiddenLayerSize; i++)
 		in >> bias(i);
 	
-	// xhM.resize(hiddenLayerSize, inputLayerSize);
-	// xhV.resize(hiddenLayerSize, inputLayerSize);
-	// hhM.resize(hiddenLayerSize, hiddenLayerSize);
-	// hhV.resize(hiddenLayerSize, hiddenLayerSize);
-	// bM.resize(hiddenLayerSize);
-	// bV.resize(hiddenLayerSize);
+	// Adam parameter
+	xhM = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
+	xhV = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
+	hhM = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
+	hhV = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
+	bM = VectorXd::Zero(hiddenLayerSize);
+	bV = VectorXd::Zero(hiddenLayerSize);
 }
 
 void HiddenLayer::forward(VectorXd _x, VectorXd &_h_prev, VectorXd &_c_prev) {
@@ -90,12 +92,16 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd &_dh_next, VectorXd &_dc_next)
 	
 	// update Weight
 	for (int i = 0; i < hiddenLayerSize; i++) {
+		// printf("dt: %lf\n", dt[i]);
+		// cout << "x: " << x.transpose() << endl;
+		// cout << "h_prev: " << h_prev.transpose() << endl;
 		xhWeight.row(i) += -ETA * dt[i] * x;
 		hhWeight.row(i) += -ETA * dt[i] * h_prev;
 	}
 	bias += -ETA * dt;
 	
-	/* Adam
+	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
+	// Adam
 	VectorXd g, mt, vt;
 	for (int i = 0; i < hiddenLayerSize; i++) {
 		g = dt[i] * x;
@@ -104,8 +110,6 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd &_dh_next, VectorXd &_dc_next)
 			
 		mt = xhM.row(i)/(1-B1);
 		vt = xhV.row(i)/(1-B2);
-		cout << mt.transpose() << endl;
-		cout << vt.transpose() << endl;
 		xhWeight.row(i) += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
 		
 		g = dt[i] * h_prev;
@@ -124,8 +128,8 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd &_dh_next, VectorXd &_dc_next)
 	mt = (1/(1-B1)) * bM;
 	vt = (1/(1-B2)) * bV;
 	bias += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
-	*/
 	
+	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	_dh_next = dh_prev;
 	_dc_next = dc_prev;
 }

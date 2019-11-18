@@ -35,6 +35,6 @@ private:
 	VectorXd bias;
 	
 	// Optimizer Adam
-	// MatrixXd xhM, xhV, hhM, hhV;
-	// VectorXd bM, bV;
+	MatrixXd xhM, xhV, hhM, hhV;
+	VectorXd bM, bV;
 };

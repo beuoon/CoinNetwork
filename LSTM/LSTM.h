@@ -35,6 +35,4 @@ private:
 	
 	vector<HiddenLayer *> hiddenLayers;
 	vector<OutputLayer *> outputLayers;
-	
-	VectorXd h_prev, c_prev;
 };

@@ -7,7 +7,7 @@
 #include <cmath> // DEBUG
 
 CoinManager::CoinManager() {
-	network = new LSTM(INPUT_NUM, HIDDEN_NUM, OUTPUT_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE); // 60분의 데이터를 주면 이후 30분의 데이터를 추측
+	network = new LSTM(INPUT_NUM, HIDDEN_NUM, OUTPUT_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 	
 	bLoop = true;
 	bTrain = true;
@@ -87,8 +87,10 @@ bool CoinManager::predict(string datetime, vector<double> &result) {
 	
 	// 데이터 변경
 	result.clear();
-	for (int i = 0; i < output.size(); i++)
-		result.push_back(output[i](0));
+	for (int i = 0; i < output.size(); i++) {
+		double value = output[i](0)*(TRAIN_DATA_MAX-TRAIN_DATA_MIN) + TRAIN_DATA_MIN;
+		result.push_back(value);
+	}
 	
 	return true;
 }
@@ -121,12 +123,7 @@ double CoinManager::train() {
 				// DEBUG
 				if (isnan(totalError)) {
 					cout << "NaN 발생" << endl;
-					NetworkManager mgr;
-					mgr << *network;
-					const char *networkStr = mgr.save();
-					
-					cout << networkStr << endl << endl;
-					getchar();
+					exit(1);
 				}
 				
 				firstIter++;

@@ -32,6 +32,8 @@ private:
 private:
 	bool bLoop;
 	
+	const double TRAIN_DATA_MAX = 1.01, TRAIN_DATA_MIN = 0.99;
+	
 	time_t startTime, endTime;
 	string startTimeStr, endTimeStr;
 	int timeInterval;

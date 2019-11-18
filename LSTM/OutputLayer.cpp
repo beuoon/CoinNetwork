@@ -8,9 +8,10 @@ OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize) {
 	
     double weightLimit = sqrt(6.0/(hiddenLayerSize+1)); // He 초기화 사용 변수
 	weight = MatrixXd::Random(outputLayerSize, hiddenLayerSize+1) * weightLimit;
+	weight.col(hiddenLayerSize) = VectorXd::Zero(outputLayerSize); // bias
 	
-	m.resize(outputLayerSize, hiddenLayerSize+1); // Momentum
-	v.resize(outputLayerSize, hiddenLayerSize+1); // RMSprop
+	m = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // Momentum
+	v = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // RMSprop
 }
 OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, NetworkManager &in) {
 	hiddenLayerSize = _hiddenLayerSize;
@@ -24,8 +25,8 @@ OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, NetworkMana
 			in >> weight(i, j);
 	}
 	
-	m.resize(outputLayerSize, hiddenLayerSize+1); // Momentum
-	v.resize(outputLayerSize, hiddenLayerSize+1); // RMSprop
+	m = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // Momentum
+	v = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // RMSprop
 }
 
 VectorXd OutputLayer::forward(VectorXd _h) {

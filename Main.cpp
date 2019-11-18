@@ -261,7 +261,7 @@ private:
 		t = mktime(&tm);
 		
 		t -= (t%60); // 초 단위 없애기
-		t -= 3600; // 한시간전
+		t -= 10*60; // 한시간전
 		string startTime = tts(t);
 		
 		vector<double> pr;

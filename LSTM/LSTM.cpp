@@ -53,19 +53,14 @@ double LSTM::train(vector<VectorXd> _inputs, vector<VectorXd> _labels) {
 }
 	
 vector<VectorXd> LSTM::forward(vector<VectorXd> _inputs) {
-	VectorXd h_prev(hiddenLayerSize);
-	VectorXd c_prev(hiddenLayerSize);
+	VectorXd h_prev = VectorXd::Zero(hiddenLayerSize);
+	VectorXd c_prev = VectorXd::Zero(hiddenLayerSize);
 	
 	// Hidden Layer
 	for (int i = 0; i < hiddenLayerNum; i++) {
 		VectorXd x = (i < inputLayerNum) ? _inputs[i] : VectorXd::Zero(inputLayerSize);
 		
 		hiddenLayers[i]->forward(x, h_prev, c_prev);
-		
-		if (i == 0) {
-			this->h_prev = h_prev;
-			this->c_prev = c_prev;
-		}
 	}
 	
 	// Output Layer
@@ -79,8 +74,8 @@ vector<VectorXd> LSTM::forward(vector<VectorXd> _inputs) {
 	return outputs;
 }
 void LSTM::backward(vector<VectorXd> _deltas) {
-	VectorXd dh_next(hiddenLayerSize);
-	VectorXd dc_next(hiddenLayerSize);
+	VectorXd dh_next = VectorXd::Zero(hiddenLayerSize);
+	VectorXd dc_next = VectorXd::Zero(hiddenLayerSize);
 	
 	for (int i = hiddenLayerNum-1, j = outputLayerNum-1; i >= 0; i--, j--) {
 		VectorXd dy = (j >= 0) ? outputLayers[j]->backward(_deltas[j]) : VectorXd::Zero(hiddenLayerSize);
