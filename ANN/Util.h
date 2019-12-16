@@ -16,3 +16,8 @@ VectorXd sigmoid_diff(const VectorXd &_v);
 
 VectorXd tanh(const VectorXd &_v);
 VectorXd tanh_diff(const VectorXd &_v);
+
+VectorXd leakyReLU(const VectorXd& _v);
+VectorXd leakyReLU_diff(const VectorXd& _v);
+
+VectorXd softmax(const VectorXd& _v);

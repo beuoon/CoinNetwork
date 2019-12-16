@@ -10,7 +10,7 @@ CoinManager::CoinManager() {
 	network = nullptr;
 	loadNetwork();
 	if (network == nullptr)
-		network = new LSTM(INPUT_NUM, HIDDEN_NUM, OUTPUT_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
+		network = new DQRN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 	
 	bLoop = true;
 	bTrain = true;
@@ -49,14 +49,14 @@ void CoinManager::loop() {
 					cout << "NaN 발생 - 새로운 신경망 생성" << endl;
 					prevNetworkStr = networkStr;
 					delete network;
-					network = new LSTM(INPUT_NUM, HIDDEN_NUM, OUTPUT_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
+					network = new DQRN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 					bPrevNetwork = true;
 				}
 				else {
 					cout << "NaN 발생 - 신경망 교배" << endl;
 					mgr.cross(prevNetworkStr, networkStr);
 					delete network;
-					network = new LSTM(mgr);
+					network = new DQRN(mgr);
 					bPrevNetwork = false;
 				}
 				mtx.unlock();
@@ -79,6 +79,7 @@ void CoinManager::loop() {
 }
 
 bool CoinManager::futurePredict(vector<double> &result) {
+	/*
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	// Input data 가져오기
 	MySQL *mysql = MySQL::getInstance();
@@ -86,14 +87,14 @@ bool CoinManager::futurePredict(vector<double> &result) {
 	
 	char query[1000];
 	
-	sprintf(query, "select number from history order by number desc limit 1");
+	sprintf(query, "select datetime from history order by number desc limit 1");
 	mysql->query(query);
 	if (mysql->storeResult() == NULL) return false;
 	if ((row = mysql->fetchRow()) == NULL) {
 		mysql->freeResult();
 		return false;
 	}
-	int dataNumber = atoi(row[0]);
+	string dataNumber = atoi(row[0]);
 	mysql->freeResult();
 	
 	sprintf(query, "select * from train_data where number > %d limit %d", dataNumber-INPUT_NUM, INPUT_NUM);
@@ -124,15 +125,14 @@ bool CoinManager::futurePredict(vector<double> &result) {
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	// 예측
 	mtx.lock();
-	vector<VectorXd> output = network->predict(input);
+	VectorXd output = network->predict(input);
 	mtx.unlock();
 	
 	// 데이터 변경
 	result.clear();
-	for (int i = 0; i < output.size(); i++) {
-		double value = (output[i](0)*0.1225 + 0.5)*(TRAIN_DATA_MAX-TRAIN_DATA_MIN) + TRAIN_DATA_MIN;
-		result.push_back(value);
-	}
+	for (int i = 0; i < output.size(); i++)
+		result.push_back(output[i]);
+	*/
 	
 	return true;
 }
@@ -197,15 +197,13 @@ bool CoinManager::predict(time_t predictTime, vector<double> &result) {
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	// 예측
 	mtx.lock();
-	vector<VectorXd> output = network->predict(input);
+	VectorXd output = network->predict(input);
 	mtx.unlock();
 	
 	// 데이터 변경
 	result.clear();
-	for (int i = 0; i < output.size(); i++) {
-		double value = (output[i](0)*0.1225 + 0.5)*(TRAIN_DATA_MAX-TRAIN_DATA_MIN) + TRAIN_DATA_MIN;
-		result.push_back(value);
-	}
+	for (int i = 0; i < output.size(); i++)
+		result.push_back(output[i]);
 	
 	return true;
 }
@@ -214,35 +212,34 @@ double CoinManager::train(int& trainCount) {
 	int lastDataNumber = 1, dataNum;
 	vector<vector<VectorXd>> trainDataArr(1);
 	
+	VectorXd trueLabel(2); trueLabel << 1, 0;
+	VectorXd falseLabel(2); falseLabel << 0, 1;
+	
 	do {
 		dataNum = fetchTrainData(trainDataArr, lastDataNumber);
 		
 		for (int i = 0; i < trainDataArr.size(); i++) {
 			if (trainDataArr[i].size() < HIDDEN_NUM) continue;
 				
-			vector<VectorXd>::iterator firstIter = trainDataArr[i].begin();
-			vector<VectorXd>::iterator middleIter = firstIter + INPUT_NUM;
-			vector<VectorXd>::iterator lastIter = middleIter + OUTPUT_NUM;
+			vector<VectorXd>::iterator inputIter = trainDataArr[i].begin();
+			vector<VectorXd>::iterator labelIter = inputIter + INPUT_NUM;
+			vector<VectorXd>::iterator prevIter = labelIter-1;
 			
 			mtx.lock();
-			while (lastIter != trainDataArr[i].end()) {
-				vector<VectorXd> input(firstIter, middleIter);
-				vector<VectorXd> label;
-				for (auto iter = middleIter; iter != lastIter; iter++) {
-					VectorXd data(1); data << (*iter)(0); // trans_ask_min_rate
-					label.push_back(data);
-				}
+			while (labelIter != trainDataArr[i].end()) {
+				vector<VectorXd> input(inputIter, labelIter);
+				VectorXd label = ((*prevIter)(0)-(*labelIter)(0) > 0) ? trueLabel : falseLabel;
 				
 				totalError += network->train(input, label);
 				trainCount++;
 				
-				firstIter++;
-				middleIter++;
-				lastIter++;
+				inputIter++;
+				labelIter++;
+				prevIter++;
 			}
 			mtx.unlock();
 		}
-	} while (dataNum == TRAIN_DATA_NUM);
+	} while (false); // (dataNum == TRAIN_DATA_NUM);
 	
 	return totalError;
 }
@@ -327,7 +324,7 @@ void CoinManager::loadNetwork() {
 	mtx.lock();
 	if (network != nullptr)
 		delete network;
-	network = new LSTM(mgr);
+	network = new DQRN(mgr);
 	mtx.unlock();
 	
 	mysql->freeResult();

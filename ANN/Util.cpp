@@ -79,3 +79,36 @@ VectorXd tanh_diff(const VectorXd &_v) {
 	
 	return v;
 }
+
+VectorXd leakyReLU(const VectorXd& _v) {
+	int size = _v.size();
+	
+	VectorXd v(size);
+	for (int i = 0; i < size; i++)
+		v[i] = (_v[i] >= 0) ? _v[i] : 0.2*_v[i];
+	
+	return v;
+}
+VectorXd leakyReLU_diff(const VectorXd& _v) {
+	int size = _v.size();
+	
+	VectorXd v(size);
+	for (int i = 0; i < size; i++)
+		v[i] = (_v[i] >= 0) ? 1 : 0.2;
+	
+	return v;
+}
+
+VectorXd softmax(const VectorXd& _v) {
+	int size = _v.size();
+	
+	double sum = 0;
+	for (int i = 0; i < size; i++)
+		sum += exp(_v[i]);
+	
+	VectorXd v(size);
+	for (int i = 0; i < size; i++)
+		v[i] = exp(_v[i]) / sum;
+	
+	return v;
+}

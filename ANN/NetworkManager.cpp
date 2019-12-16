@@ -42,4 +42,3 @@ NetworkManager& NetworkManager::operator<<(const double &d) {
 	networkStr += to_string(d);
 	return *this;
 }
-	

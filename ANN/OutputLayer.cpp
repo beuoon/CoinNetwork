@@ -35,6 +35,7 @@ VectorXd OutputLayer::forward(VectorXd _h) {
 	h(hiddenLayerSize) = 1; // Bias
 	
 	VectorXd y = weight * h;
+	y = softmax(y);
 	
 	return y;
 }

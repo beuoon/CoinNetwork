@@ -12,14 +12,14 @@ using namespace std;
 class HiddenLayer {
 public:
 	HiddenLayer(int _inputLayerSize, int _hiddenLayerSize);
-	HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManager &in);
+	HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManager& in);
 	
-	void forward(VectorXd _x, VectorXd &_h_prev, VectorXd &_c_prev);
-	void backward(VectorXd _dy, VectorXd &_dh_next, VectorXd &_dc_next);
+	void forward(VectorXd _x, VectorXd& _h_prev);
+	void backward(VectorXd _dy, VectorXd& _dh_next);
 	
 	VectorXd getH() { return h; }
 	
-	friend NetworkManager& operator<<(NetworkManager& out, const HiddenLayer &layer);
+	friend NetworkManager& operator<<(NetworkManager& out, const HiddenLayer& layer);
 	
 private:
 	const double ETA = 0.001, EPSILON = 0.00000001;
@@ -27,9 +27,7 @@ private:
 	
 	int inputLayerSize, hiddenLayerSize;
 	
-    VectorXd x, h_prev, c_prev,
-			f, i, g, o,
-			h, c;
+    VectorXd x, h, h_prev;
 	
 	MatrixXd xhWeight, hhWeight;
 	VectorXd bias;

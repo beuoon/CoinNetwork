@@ -1,7 +1,7 @@
 TARGET = coinPredictor
 CPPFLAGS = -I/usr/include/mysql/ -std=c++11 -lmysqlclient -lcurl -lcrypto -lpthread
 
-OBJECTS = Main.o LSTM/Util.o LSTM/NetworkManager.o LSTM/OutputLayer.o LSTM/HiddenLayer.o LSTM/LSTM.o \
+OBJECTS = Main.o ANN/Util.o ANN/NetworkManager.o ANN/OutputLayer.o ANN/HiddenLayer.o ANN/DQRN.o \
 	xcoin_api.o Bithumb.o DataSaver.o CoinManager.o MySQL.o
 $(TARGET): $(OBJECTS)
 	$(CXX) -o $@ $^ $(CPPFLAGS)
@@ -10,11 +10,11 @@ clean :
 	rm $(OBJECTS) $(TARGET)
 	
 Main.o: Main.cpp
-LSTM/OutputLayer.o: LSTM/OutputLayer.cpp LSTM/OutputLayer.h
-LSTM/HiddenLayer.o: LSTM/HiddenLayer.cpp LSTM/HiddenLayer.h
-LSTM/LSTM.o: LSTM/LSTM.cpp LSTM/LSTM.h
-LSTM/NetworkManager.o: LSTM/NetworkManager.cpp LSTM/NetworkManager.h
-LSTM/Util.o: LSTM/Util.cpp LSTM/Util.h
+ANN/OutputLayer.o: ANN/OutputLayer.cpp ANN/OutputLayer.h
+ANN/HiddenLayer.o: ANN/HiddenLayer.cpp ANN/HiddenLayer.h
+ANN/DQRN.o: ANN/DQRN.cpp ANN/DQRN.h
+ANN/NetworkManager.o: ANN/NetworkManager.cpp ANN/NetworkManager.h
+ANN/Util.o: ANN/Util.cpp ANN/Util.h
 xcoin_api.o: xcoin_api.cpp xcoin_api.h
 Bithumb.o: Bithumb.cpp Bithumb.h
 DataSaver.o: DataSaver.cpp DataSaver.h
