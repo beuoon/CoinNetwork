@@ -1,10 +1,7 @@
 #include "Bithumb.h"
 
+#include <fstream>
 #include "xcoin_api.h"
-#include <stack>
-#include <iostream>
-
-using namespace std;
 
 namespace Bithumb {
 	Order::Order(const Value& data) {
@@ -20,10 +17,31 @@ namespace Bithumb {
 		total = atof(data["total"].GetString());
 	}
 	
-	bool getOrderBook(int count, string currency, map<string, vector<Order>>& book) {
-		string url("/public/orderbook/");
+	Account::Account() {
+		/* Wallet.secret
+		{
+			"Connect Key": "..."
+			"Secret Key": "..."
+		}
+		*/
+		
+		ifstream in(fileName);
+		char buffer[5000];
+		if (!in.is_open()) return ;
+		in.read(buffer, 5000);
+		in.close();
+		
+		Document document;
+		document.Parse(buffer);
+		if (!document.IsObject()) return ;
+		
+		connectKey = document["ConnectKey"].GetString();
+		secretKey = document["SecretKey"].GetString();
+	}
+	
+	bool getOrderBook(int count, map<string, vector<Order>>& book) {
+		string url("/public/orderbook/BTC");
 		string post("count=");
-		url += currency;
 		post += to_string(count);
 		const char *result = api_request(url.c_str(), post.c_str());
 		if (result == NULL) return false;
@@ -45,10 +63,9 @@ namespace Bithumb {
 		
 		return true;
 	}
-	bool getTransactionHistory(int count, string currency, vector<Transaction>& history) {
-		string url("/public/transaction_history/");
+	bool getTransactionHistory(int count, vector<Transaction>& history) {
+		string url("/public/transaction_history/BTC");
 		string post("count=");
-		url += currency;
 		post += to_string(count);
 		const char *result = api_request(url.c_str(), post.c_str());
 		if (result == NULL) return false;
@@ -66,5 +83,19 @@ namespace Bithumb {
 			history.push_back(Transaction(trans));
 		
 		return true;
+	}
+	
+	
+	bool getBalance() {
+		string connectKey = Account::getInstance()->getConnectKey();
+		string secretKey = Account::getInstance()->getSecretKey();
+	}
+	bool buyMakretPrice() {
+		string connectKey = Account::getInstance()->getConnectKey();
+		string secretKey = Account::getInstance()->getSecretKey();
+	}
+	bool sellMarketPrice() {
+		string connectKey = Account::getInstance()->getConnectKey();
+		string secretKey = Account::getInstance()->getSecretKey();
 	}
 }

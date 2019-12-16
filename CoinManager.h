@@ -20,10 +20,15 @@ public:
 	void loop();
 	void switchLoop(bool _bLoop) { bLoop = _bLoop; }
 	void switchTrain(bool _bTrain) { bTrain = _bTrain; }
+	void switchInvest(bool _bInvest) { bInvest = _bInvest; }
 	bool getTrainStatus() { return bTrain; }
+	bool getInvestStatus() { return bInvest; }
 	
-	bool predict(string datetime, vector<double> &result);
-	double train();
+	bool futurePredict(vector<double> &result);
+	void invest(vector<double> futureInfo);
+	
+	bool predict(time_t predictTime, vector<double> &result);
+	double train(int& trainCount);
 	
 	void saveNetwork();
 	void loadNetwork();
@@ -37,11 +42,13 @@ private:
 	
 	const double TRAIN_DATA_MAX = 1.01, TRAIN_DATA_MIN=0.99;
 	const int TRAIN_DATA_NUM = 200;
-	const int NETWORK_SAVE_INTERVAL = 43200; // 12시간
+	const int NETWORK_SAVE_INTERVAL = 19600; // 6시간
 	
 	LSTM *network;
+	string prevNetworkStr;
+	bool bPrevNetwork;
 	
-	bool bLoop, bTrain;
+	bool bLoop, bTrain, bInvest;
 	
 	mutex mtx;
 };

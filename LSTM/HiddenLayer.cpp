@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <cstring>
 
 HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize) {
 	inputLayerSize = _inputLayerSize;

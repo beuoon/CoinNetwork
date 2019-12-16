@@ -1,13 +1,15 @@
 #pragma once
 
 #include <string>
+#include <sstream>
 
 using namespace std;
 
 class NetworkManager {
 public:
-	void load(char *str);
-	const char *save();
+	void load(string str);
+	string save();
+	void cross(string str1, string str2);
 	
 	NetworkManager& operator>>(int &i);
 	NetworkManager& operator>>(double &d);
@@ -17,6 +19,6 @@ public:
 	NetworkManager& operator<<(const double &d);
 
 private:
-	char *loadStr;
-	string saveStr;
+	string networkStr;
+	stringstream stream;
 };

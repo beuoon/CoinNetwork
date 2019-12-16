@@ -62,15 +62,12 @@ public:
 		thread tNetwork(&CoinManager::loop, &coinMgr);
 		
 		// Process Message
-		printf("서버 시작\n");
 		do {
 			client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
 			if (-1 == client_socket) {
 				printf("클라이언트 연결 수락 실패\n");
 				continue;
 			}
-			printf("클라이언트 연결\n");
-			
 			
 			//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 			// 수신
@@ -114,7 +111,6 @@ public:
 			usleep(1000);
 			
 			::close(client_socket);
-			printf("클라이언트 연결 종료\n");
 		} while(true);
 		
 		printf("서버 종료\n");
@@ -256,16 +252,14 @@ private:
 		const char* datetime = rData["datetime"].GetString(); // datetime부터 30분간의 데이터를 예측 요청
 		
 		struct tm tm;
-		time_t t;
+		time_t pt;
 		strptime(datetime, "%Y-%m-%d %H:%M:%S", &tm);
-		t = mktime(&tm);
+		pt = mktime(&tm);
 		
-		t -= (t%60); // 초 단위 없애기
-		t -= 10*60; // 한시간전
-		string startTime = tts(t);
+		pt -= (pt%60); // 초 단위 없애기
 		
 		vector<double> pr;
-		if (!coinMgr.predict(startTime, pr))
+		if (!coinMgr.predict(pt, pr))
 			return error(ErrorType::INSUFFICIENT_HISTORY);
 		
 		//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//

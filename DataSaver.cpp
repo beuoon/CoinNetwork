@@ -79,7 +79,7 @@ void DataSaver::setting() {
 
 void DataSaver::fetchTransactionData() {
 	vector<Bithumb::Transaction> newHistories;
-	if (!Bithumb::getTransactionHistory(100, "BTC", newHistories)) return ;
+	if (!Bithumb::getTransactionHistory(100, newHistories)) return ;
 	
 	vector<Bithumb::Transaction>::iterator iter;
 
@@ -132,7 +132,7 @@ void DataSaver::processOrderData() {
 	
 	// 주문 정보 가져오기
 	map<string, vector<Bithumb::Order>> orderBook;
-	if (!Bithumb::getOrderBook(30, "BTC", orderBook)) return ;
+	if (!Bithumb::getOrderBook(30, orderBook)) return ;
 	
 	vector<Bithumb::Order> askOrder = orderBook["ask"];
 	vector<Bithumb::Order> bidOrder = orderBook["bid"];
@@ -158,27 +158,27 @@ void DataSaver::processOrderData() {
 
 void DataSaver::sendDB() {
 	// 변화량 측정
-	double trans_ask_min_rate = 1, trans_ask_avrg_rate = 1;
-	double trans_bid_max_rate = 1, trans_bid_avrg_rate = 1;
-	double order_ask_min_rate = 1, order_ask_avrg_rate = 1;
-	double order_bid_max_rate = 1, order_bid_avrg_rate = 1;
+	double trans_ask_min_rate = 0, trans_ask_avrg_rate = 0;
+	double trans_bid_max_rate = 0, trans_bid_avrg_rate = 0;
+	double order_ask_min_rate = 0, order_ask_avrg_rate = 0;
+	double order_bid_max_rate = 0, order_bid_avrg_rate = 0;
 		
 	if (count > 0) {
 		if (trans_ask_unit != 0) {
-			trans_ask_min_rate = (trans_ask_min/prev_trans_ask_min - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
-			trans_ask_avrg_rate = (trans_ask_avrg/prev_trans_ask_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
+			trans_ask_min_rate = ((trans_ask_min/prev_trans_ask_min - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
+			trans_ask_avrg_rate = ((trans_ask_avrg/prev_trans_ask_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
 		}
 		if (trans_bid_unit != 0) {
-			trans_bid_max_rate = (trans_bid_max/prev_trans_bid_max - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
-			trans_bid_avrg_rate = (trans_bid_avrg/prev_trans_bid_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
+			trans_bid_max_rate = ((trans_bid_max/prev_trans_bid_max - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
+			trans_bid_avrg_rate = ((trans_bid_avrg/prev_trans_bid_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
 		}
 		if (order_ask_unit != 0) {
-			order_ask_min_rate = (order_ask_min/prev_order_ask_min - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
-			order_ask_avrg_rate = (order_ask_avrg/prev_order_ask_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
+			order_ask_min_rate = ((order_ask_min/prev_order_ask_min - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
+			order_ask_avrg_rate = ((order_ask_avrg/prev_order_ask_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
 		}
 		if (order_bid_unit != 0) {
-			order_bid_max_rate = (order_bid_max/prev_order_bid_max - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
-			order_bid_avrg_rate = (order_bid_avrg/prev_order_bid_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN);
+			order_bid_max_rate = ((order_bid_max/prev_order_bid_max - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
+			order_bid_avrg_rate = ((order_bid_avrg/prev_order_bid_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
 		}
 	}
 		

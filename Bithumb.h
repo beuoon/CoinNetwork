@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <iostream>
 #include <rapidjson/document.h>
 
 using namespace rapidjson;
@@ -43,6 +42,30 @@ namespace Bithumb {
 		double total;
 	};
 	
-	bool getOrderBook(int count, string currency, map<string, vector<Order>>& book);
-	bool getTransactionHistory(int count, string currency, vector<Transaction>& history);
+	class Account {
+	private:
+		Account();
+	
+	public:
+		static Account *getInstance() {
+			static Account *instance = new Account();
+			return instance;
+		}
+		
+		string getConnectKey() { return connectKey; }
+		string getSecretKey() { return secretKey; }
+		
+	private:
+		const string fileName = "Wallet.secret";
+	
+		string connectKey;
+		string secretKey;
+	};
+	
+	bool getOrderBook(int count, map<string, vector<Order>>& book);
+	bool getTransactionHistory(int count, vector<Transaction>& history);
+	
+	bool getBalance();
+	bool buyMakretPrice();
+	bool sellMarketPrice();
 }

@@ -3,6 +3,7 @@
 #include <ctime>
 #include <vector>
 #include <string>
+#include <iostream>
 
 #include "Bithumb.h"
 #include "MySQL.h"
