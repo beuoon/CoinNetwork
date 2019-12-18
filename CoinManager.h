@@ -41,7 +41,7 @@ private:
 
 private:
 	const int INPUT_NUM = 10, HIDDEN_NUM = 20;
-	const int INPUT_SIZE = 10, HIDDEN_SIZE = 10, OUTPUT_SIZE = 2;
+	const int INPUT_SIZE = 10, HIDDEN_SIZE = 10, OUTPUT_SIZE = 3;
 	
 	const double TRAIN_DATA_MAX = 1.01, TRAIN_DATA_MIN = 0.99;
 	const int TRAIN_DATA_NUM = 300;

@@ -61,7 +61,7 @@ void CoinManager::loop() {
 			
 			// NaN 발생
 			if (isnan(loss) || isinf(loss)) {
-				cout << "문제가 발생하여 새로운 신경망을 생성했습니다. (BB: " << bestBenefit << ")" << endl;
+				cout << "문제가 발생하여 새로운 신경망을 생성했습니다." << endl;
 				delete network;
 				network = new DQRN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 				
@@ -216,9 +216,7 @@ double CoinManager::train(int& trainCount) {
 	static vector<vector<VectorXd>> trainDataArr(1);
 	static int lastDataNumber = 1;
 	int dataNum;
-	
-	VectorXd trueLabel(2); trueLabel << 1, 0;
-	VectorXd falseLabel(2); falseLabel << 0, 1;
+	double money = 1;
 	
 	dataNum = fetchTrainData(trainDataArr, lastDataNumber);
 		
@@ -226,12 +224,24 @@ double CoinManager::train(int& trainCount) {
 		if (trainDataArr[i].size() < HIDDEN_NUM) continue;
 		
 		vector<VectorXd>::iterator inputIter = trainDataArr[i].begin();
-		vector<VectorXd>::iterator middleIter = inputIter + INPUT_NUM;
+		vector<VectorXd>::iterator middleIter = inputIter + INPUT_NUM - 1;
 		vector<VectorXd>::iterator labelIter = middleIter;
 		
 		while (labelIter != trainDataArr[i].end()) {
-			vector<VectorXd> input(inputIter, middleIter);
-			VectorXd label = ((*labelIter)(0) >= 0.3) ? trueLabel : falseLabel;
+			vector<VectorXd> input(inputIter, middleIter); // add money
+			double rate = (*labelIter)(0); // ask_min_rate
+			VectorXd label = (rate >= 0.4) ? bombLabel : ((rate > 0.0) ? increaseLabel : decreaseLabel);
+			
+			result = network->predict(input);
+			if (result == 1, 0) {
+				money *= rate;
+				reward = 1.0-rate;
+			}
+			else {
+				reward = rate-1.0;
+			}
+			
+			
 			
 			totalError += network->train(input, label);
 			trainCount++;
@@ -256,11 +266,12 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 	
 	accuracy = 0, loss = 0;
 	
-	VectorXd trueLabel(2); trueLabel << 1, 0;
-	VectorXd falseLabel(2); falseLabel << 0, 1;
+	VectorXd bombLabel(OUTPUT_SIZE);	bombLabel << 1, 0, 0;
+	VectorXd increaseLabel(OUTPUT_SIZE);increaseLabel << 0, 1, 0;
+	VectorXd decreaseLabel(OUTPUT_SIZE);decreaseLabel << 0, 0, 1;
 	
 	// TEST
-	int TS = 0, TF = 0, FS = 0, FF = 0;
+	int BS = 0, BF = 0, IS = 0, IF = 0, DS = 0, DF = 0;
 	
 	do {
 		dataNum = fetchTrainData(trainDataArr, lastDataNumber);
@@ -273,8 +284,9 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 			vector<VectorXd>::iterator labelIter = middleIter;
 			
 			while (labelIter != trainDataArr[i].end()) {
-				vector<VectorXd> input(inputIter, middleIter);
-				VectorXd label = ((*labelIter)(0) >= 0.3) ? trueLabel : falseLabel;
+				vector<VectorXd> input(inputIter, middleIter);				
+				double rate = (*labelIter)(0); // ask_min_rate
+				VectorXd label = (rate >= 0.4) ? bombLabel : ((rate > 0.0) ? increaseLabel : decreaseLabel);
 				// cout << (*labelIter)(0) << " -> " << ((*labelIter)(0)*0.1225 + 0.5) * 0.02 + 0.99 << endl;
 				
 				// Error
@@ -291,18 +303,23 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 				loss += error;
 				
 				// Accuracy
-				if (label == trueLabel && output[0] > output[1] ||
-					label == falseLabel && output[0] < output[1])
+				if (label == bombLabel && output[0] > output[1] && output[0] > output[2] ||
+					label == increaseLabel && output[1] > output[0] && output[1] > output[2] ||
+					label == decreaseLabel && output[2] > output[0] && output[2] > output[1])
 					accuracy += 1;
 					
 				// TEST
-				if (label == trueLabel) {
-					if (output[0] > output[1]) TS++;
-					else 					   TF++;
+				if (label == bombLabel) {
+					if (output[0] > output[1] && output[0] > output[2]) BS++;
+					else 					   							BF++;
+				}
+				else if (label == increaseLabel) {
+					if (output[1] > output[0] && output[1] > output[2]) IS++;
+					else 					   							IF++;
 				}
 				else {
-					if (output[0] < output[1]) FS++;
-					else 					   FF++;
+					if (output[2] > output[0] && output[2] > output[1]) DS++;
+					else												DF++;
 				}
 				
 				count++;
@@ -314,13 +331,13 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 		}
 	} while (dataNum == TRAIN_DATA_NUM);
 	
-	printf("C: %d, TS: %d, TF: %d, FS: %d, FF: %d\n", count, TS, TF, FS, FF);
+	printf("C: %d, B:%d/%d, I:%d/%d, D:%d/%d\n", count, BS, BF, IS, IF, DS, DF);
 	fflush(stdout);
 	
 	loss /= count;
 	accuracy /= count;
 	
-	return TS-FF;
+	return BS-DF;
 }
 	
 int CoinManager::fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &lastDataNumber) {

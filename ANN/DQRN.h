@@ -21,7 +21,6 @@ public:
 	
 	VectorXd predict(vector<VectorXd> _inputs) { return forward(_inputs); }
 	double train(vector<VectorXd> _inputs, VectorXd _labels);
-	double loss(vector<VectorXd> _inputs, VectorXd _labels);
 	
 	friend NetworkManager& operator<<(NetworkManager& out, const DQRN &network);
 	

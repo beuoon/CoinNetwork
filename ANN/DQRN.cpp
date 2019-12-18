@@ -34,24 +34,11 @@ double DQRN::train(vector<VectorXd> _inputs, VectorXd _label) {
 	VectorXd delta(outputLayerSize);
 	for (int i = 0; i < outputLayerSize; i++) {
 		delta[i] = output[i] - _label[i];
-		error += -_label[i]*log(output[i]); // cross-entropy loss
+		error += 0.5*delta[i]*delta[i]; // mean square error
 	}
 	error /= outputLayerSize;
 	
 	backward(delta);
-	
-	return error;
-}
-double DQRN::loss(vector<VectorXd> _inputs, VectorXd _label) {
-	double error = 0;
-	VectorXd output = forward(_inputs);
-	
-	VectorXd delta(outputLayerSize);
-	for (int i = 0; i < outputLayerSize; i++) {
-		delta[i] = output[i] - _label[i];
-		error += -_label[i]*log(output[i]); // cross-entropy loss
-	}
-	error /= outputLayerSize;
 	
 	return error;
 }
