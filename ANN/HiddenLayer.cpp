@@ -74,6 +74,14 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd& _dh_next) {
 	for (int i = 0; i < hiddenLayerSize; i++)
 		dh_prev(i) = mul(hhWeight.col(i), dt).sum();
 	
+	// update weight
+	for (int i = 0; i < hiddenLayerSize; i++) {
+		xhWeight.row(i) += -ETA * dt[i] * x;
+		hhWeight.row(i) += -ETA * dt[i] * h_prev;
+	}
+	bias += -ETA * dt;
+	
+	/*
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	// Adam
 	VectorXd g, mt, vt;
@@ -104,6 +112,7 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd& _dh_next) {
 	bias += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
 	
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
+	*/
 	_dh_next = dh_prev;
 }
 

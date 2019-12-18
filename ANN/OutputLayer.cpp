@@ -43,7 +43,11 @@ VectorXd OutputLayer::backward(VectorXd _delta) {
 	VectorXd dh(hiddenLayerSize);
 	for (int i = 0; i < hiddenLayerSize; i++)
 		dh(i) = mul(weight.col(i), _delta).sum();
-    
+	
+    for (int i = 0; i < outputLayerSize; i++)
+		weight.row(i) += -ETA * _delta[i] * h;
+	
+	/*
 	for (int i = 0; i < outputLayerSize; i++) {
 		VectorXd g = _delta[i] * h;
 		m.row(i) = B1*(VectorXd)m.row(i) + (1-B1)*g;
@@ -53,6 +57,7 @@ VectorXd OutputLayer::backward(VectorXd _delta) {
 		VectorXd vt = v.row(i)/(1-B2);
 		weight.row(i) += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
 	}
+	*/
 	
 	return dh;
 }

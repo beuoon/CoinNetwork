@@ -22,7 +22,7 @@ public:
 	friend NetworkManager& operator<<(NetworkManager& out, const HiddenLayer& layer);
 	
 private:
-	const double ETA = 0.001, EPSILON = 0.00000001;
+	const double ETA = 0.0001, EPSILON = 0.00000001;
 	const double B1 = 0.9, B2 = 0.999;
 	
 	int inputLayerSize, hiddenLayerSize;
