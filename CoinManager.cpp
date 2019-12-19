@@ -218,6 +218,9 @@ double CoinManager::train(int& trainCount) {
 	int dataNum;
 	double money = 1;
 	
+	VectorXd trueLabel(OUTPUT_SIZE);	trueLabel << 1, 0;
+	VectorXd falseLabel(OUTPUT_SIZE);	falseLabel << 0, 1;
+	
 	dataNum = fetchTrainData(trainDataArr, lastDataNumber);
 		
 	for (int i = 0; i < trainDataArr.size(); i++) {
@@ -228,25 +231,8 @@ double CoinManager::train(int& trainCount) {
 		vector<VectorXd>::iterator labelIter = middleIter;
 		
 		while (labelIter != trainDataArr[i].end()) {
-<<<<<<< HEAD
-			vector<VectorXd> input(inputIter, middleIter); // add money
-			double rate = (*labelIter)(0); // ask_min_rate
-			VectorXd label = (rate >= 0.4) ? bombLabel : ((rate > 0.0) ? increaseLabel : decreaseLabel);
-			
-			result = network->predict(input);
-			if (result == 1, 0) {
-				money *= rate;
-				reward = 1.0-rate;
-			}
-			else {
-				reward = rate-1.0;
-			}
-			
-			
-=======
 			vector<VectorXd> input(inputIter, middleIter);
 			VectorXd label = ((*labelIter)(0) >= 0.1) ? trueLabel : falseLabel;
->>>>>>> CEE
 			
 			totalError += network->train(input, label);
 			trainCount++;
@@ -271,12 +257,11 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 	
 	accuracy = 0, loss = 0;
 	
-	VectorXd bombLabel(OUTPUT_SIZE);	bombLabel << 1, 0, 0;
-	VectorXd increaseLabel(OUTPUT_SIZE);increaseLabel << 0, 1, 0;
-	VectorXd decreaseLabel(OUTPUT_SIZE);decreaseLabel << 0, 0, 1;
+	VectorXd trueLabel(OUTPUT_SIZE);	trueLabel << 1, 0;
+	VectorXd falseLabel(OUTPUT_SIZE);	falseLabel << 0, 1;
 	
 	// TEST
-	int BS = 0, BF = 0, IS = 0, IF = 0, DS = 0, DF = 0;
+	int TS = 0, TF = 0, FS = 0, FF = 0;
 	
 	do {
 		dataNum = fetchTrainData(trainDataArr, lastDataNumber);
@@ -289,15 +274,8 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 			vector<VectorXd>::iterator labelIter = middleIter;
 			
 			while (labelIter != trainDataArr[i].end()) {
-<<<<<<< HEAD
-				vector<VectorXd> input(inputIter, middleIter);				
-				double rate = (*labelIter)(0); // ask_min_rate
-				VectorXd label = (rate >= 0.4) ? bombLabel : ((rate > 0.0) ? increaseLabel : decreaseLabel);
-=======
 				vector<VectorXd> input(inputIter, middleIter);
 				VectorXd label = ((*labelIter)(0) >= 0.1) ? trueLabel : falseLabel;
->>>>>>> CEE
-				// cout << (*labelIter)(0) << " -> " << ((*labelIter)(0)*0.1225 + 0.5) * 0.02 + 0.99 << endl;
 				
 				// Error
 				double error = 0;
@@ -313,23 +291,18 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 				loss += error;
 				
 				// Accuracy
-				if (label == bombLabel && output[0] > output[1] && output[0] > output[2] ||
-					label == increaseLabel && output[1] > output[0] && output[1] > output[2] ||
-					label == decreaseLabel && output[2] > output[0] && output[2] > output[1])
+				if (label == trueLabel && output[0] > output[1] ||
+					label == falseLabel && output[1] > output[0])
 					accuracy += 1;
 					
 				// TEST
-				if (label == bombLabel) {
-					if (output[0] > output[1] && output[0] > output[2]) BS++;
-					else 					   							BF++;
-				}
-				else if (label == increaseLabel) {
-					if (output[1] > output[0] && output[1] > output[2]) IS++;
-					else 					   							IF++;
+				if (label == trueLabel) {
+					if (output[0] > output[1])	TS++;
+					else 					 	TF++;
 				}
 				else {
-					if (output[2] > output[0] && output[2] > output[1]) DS++;
-					else												DF++;
+					if (output[0] < output[1])	FS++;
+					else 					 	FF++;
 				}
 				
 				count++;
@@ -341,17 +314,13 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 		}
 	} while (dataNum == TRAIN_DATA_NUM);
 	
-<<<<<<< HEAD
-	printf("C: %d, B:%d/%d, I:%d/%d, D:%d/%d\n", count, BS, BF, IS, IF, DS, DF);
-=======
 	printf("C: %d, T: %d/%d, F: %d/%d\n", count, TS, TF, FS, FF);
->>>>>>> CEE
 	fflush(stdout);
 	
 	loss /= count;
 	accuracy /= count;
 	
-	return BS-DF;
+	return TS-FF;
 }
 	
 int CoinManager::fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &lastDataNumber) {
