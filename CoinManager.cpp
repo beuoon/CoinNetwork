@@ -227,7 +227,7 @@ double CoinManager::train(int& trainCount) {
 		if (trainDataArr[i].size() < HIDDEN_NUM) continue;
 		
 		vector<VectorXd>::iterator inputIter = trainDataArr[i].begin();
-		vector<VectorXd>::iterator middleIter = inputIter + INPUT_NUM - 1;
+		vector<VectorXd>::iterator middleIter = inputIter + INPUT_NUM;
 		vector<VectorXd>::iterator labelIter = middleIter;
 		
 		while (labelIter != trainDataArr[i].end()) {

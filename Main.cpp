@@ -296,7 +296,7 @@ private:
 	int server_socket;
 	
 	const int PORT = 4000;
-	const int CLIENT_MAX_NUM = 5;
+	const int CLIENT_MAX_NUM = 50;
 	const int BUFF_SIZE = 500;
 	
 	DataSaver dataSaver;
