@@ -9,7 +9,7 @@
 mutex CoinManager::mtx;
 
 CoinManager::CoinManager() {
-	network = new DQRN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
+	network = new ANN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 	
 	bestNetwork = nullptr;
 	bestBenefit = 0;
@@ -50,7 +50,8 @@ void CoinManager::loop() {
 				if (bestNetwork != nullptr)
 					delete bestNetwork;
 				NetworkManager mgr; mgr << *network;
-				bestNetwork = new DQRN(mgr);
+				mgr.load(mgr.save());
+				bestNetwork = new ANN(mgr);
 				mtx.unlock();
 				
 				saveNetwork();
@@ -61,9 +62,9 @@ void CoinManager::loop() {
 			
 			// NaN 발생
 			if (isnan(loss) || isinf(loss)) {
-				cout << "문제가 발생하여 새로운 신경망을 생성했습니다. (BB: " << bestBenefit << ")" << endl;
+				cout << "문제가 발생하여 새로운 신경망을 생성했습니다." << endl;
 				delete network;
-				network = new DQRN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
+				network = new ANN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 				
 				totalTrainCount = 0;
 			}
@@ -149,6 +150,7 @@ void CoinManager::invest(vector<double> futureInfo) {
 }
 
 bool CoinManager::predict(time_t predictTime, vector<double> &result) {
+	lock_guard<mutex> guard(mtx);
 	if (bestNetwork == nullptr)
 		return false;
 	
@@ -200,9 +202,7 @@ bool CoinManager::predict(time_t predictTime, vector<double> &result) {
 	
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
 	// 예측
-	mtx.lock();
 	VectorXd output = bestNetwork->predict(input);
-	mtx.unlock();
 	
 	// 데이터 변경
 	result.clear();
@@ -231,7 +231,7 @@ double CoinManager::train(int& trainCount) {
 		
 		while (labelIter != trainDataArr[i].end()) {
 			vector<VectorXd> input(inputIter, middleIter);
-			VectorXd label = ((*labelIter)(0) >= 0.3) ? trueLabel : falseLabel;
+			VectorXd label = ((*labelIter)(0) >= 0.1) ? trueLabel : falseLabel;
 			
 			totalError += network->train(input, label);
 			trainCount++;
@@ -274,7 +274,7 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 			
 			while (labelIter != trainDataArr[i].end()) {
 				vector<VectorXd> input(inputIter, middleIter);
-				VectorXd label = ((*labelIter)(0) >= 0.3) ? trueLabel : falseLabel;
+				VectorXd label = ((*labelIter)(0) >= 0.1) ? trueLabel : falseLabel;
 				// cout << (*labelIter)(0) << " -> " << ((*labelIter)(0)*0.1225 + 0.5) * 0.02 + 0.99 << endl;
 				
 				// Error
@@ -314,7 +314,7 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 		}
 	} while (dataNum == TRAIN_DATA_NUM);
 	
-	printf("C: %d, TS: %d, TF: %d, FS: %d, FF: %d\n", count, TS, TF, FS, FF);
+	printf("C: %d, T: %d/%d, F: %d/%d\n", count, TS, TF, FS, FF);
 	fflush(stdout);
 	
 	loss /= count;
@@ -370,6 +370,7 @@ int CoinManager::fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &las
 }
 	
 void CoinManager::saveNetwork() {
+	lock_guard<mutex> guard(mtx);
 	NetworkManager mgr; mgr << *bestNetwork;
 	string networkStr = mgr.save();
 	
@@ -387,6 +388,7 @@ void CoinManager::saveNetwork() {
 	delete[] query;
 }
 void CoinManager::loadNetwork() {
+	lock_guard<mutex> guard(mtx);
 	// DB 가져오기
 	MySQL *mysql = MySQL::getInstance();
 	MYSQL_ROW row;
@@ -403,11 +405,9 @@ void CoinManager::loadNetwork() {
 	NetworkManager mgr;
 	mgr.load(string(str));
 	
-	mtx.lock();
 	if (bestNetwork != nullptr)
 		delete bestNetwork;
-	bestNetwork = new DQRN(mgr);
-	mtx.unlock();
+	bestNetwork = new ANN(mgr);
 	
 	mysql->freeResult();
 }

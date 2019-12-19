@@ -9,9 +9,6 @@ OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize) {
     double weightLimit = sqrt(6.0/(hiddenLayerSize+1)); // He 초기화 사용 변수
 	weight = MatrixXd::Random(outputLayerSize, hiddenLayerSize+1) * weightLimit;
 	weight.col(hiddenLayerSize) = VectorXd::Zero(outputLayerSize); // bias
-	
-	m = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // Momentum
-	v = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // RMSprop
 }
 OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, NetworkManager &in) {
 	hiddenLayerSize = _hiddenLayerSize;
@@ -24,9 +21,6 @@ OutputLayer::OutputLayer(int _hiddenLayerSize, int _outputLayerSize, NetworkMana
 		for (int j = 0; j <= hiddenLayerSize; j++)
 			in >> weight(i, j);
 	}
-	
-	m = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // Momentum
-	v = MatrixXd::Zero(outputLayerSize, hiddenLayerSize+1); // RMSprop
 }
 
 VectorXd OutputLayer::forward(VectorXd _h) {
@@ -46,18 +40,6 @@ VectorXd OutputLayer::backward(VectorXd _delta) {
 	
     for (int i = 0; i < outputLayerSize; i++)
 		weight.row(i) += -ETA * _delta[i] * h;
-	
-	/*
-	for (int i = 0; i < outputLayerSize; i++) {
-		VectorXd g = _delta[i] * h;
-		m.row(i) = B1*(VectorXd)m.row(i) + (1-B1)*g;
-		v.row(i) = B2*(VectorXd)v.row(i) + (1-B2)*mul(g, g);
-		
-		VectorXd mt = m.row(i)/(1-B1);
-		VectorXd vt = v.row(i)/(1-B2);
-		weight.row(i) += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
-	}
-	*/
 	
 	return dh;
 }

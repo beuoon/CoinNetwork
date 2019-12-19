@@ -13,14 +13,6 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize) {
 	xhWeight = MatrixXd::Random(hiddenLayerSize, inputLayerSize) * xhWeightLimit;
 	hhWeight = MatrixXd::Random(hiddenLayerSize, hiddenLayerSize) * hhWeightLimit;
 	bias = VectorXd::Zero(hiddenLayerSize);
-	
-	// Adam parameter
-	xhM = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
-	xhV = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
-	hhM = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
-	hhV = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
-	bM = VectorXd::Zero(hiddenLayerSize);
-	bV = VectorXd::Zero(hiddenLayerSize);
 }
 HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManager &in) {
 	inputLayerSize = _inputLayerSize;
@@ -31,8 +23,8 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManag
 	bias.resize(hiddenLayerSize);
 	
 	// load xhWeight
-	for (int i = 0; i < inputLayerSize; i++) {
-		for (int j = 0; j < hiddenLayerSize; j++)
+	for (int i = 0; i < hiddenLayerSize; i++) {
+		for (int j = 0; j < inputLayerSize; j++)
 			in >> xhWeight(i, j);
 	}
 	
@@ -45,14 +37,6 @@ HiddenLayer::HiddenLayer(int _inputLayerSize, int _hiddenLayerSize, NetworkManag
 	// load bias
 	for (int i = 0; i < hiddenLayerSize; i++)
 		in >> bias(i);
-	
-	// Adam parameter
-	xhM = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
-	xhV = MatrixXd::Zero(hiddenLayerSize, inputLayerSize);
-	hhM = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
-	hhV = MatrixXd::Zero(hiddenLayerSize, hiddenLayerSize);
-	bM = VectorXd::Zero(hiddenLayerSize);
-	bV = VectorXd::Zero(hiddenLayerSize);
 }
 
 void HiddenLayer::forward(VectorXd _x, VectorXd& _h_prev) {
@@ -73,6 +57,7 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd& _dh_next) {
 	VectorXd dh_prev(hiddenLayerSize);
 	for (int i = 0; i < hiddenLayerSize; i++)
 		dh_prev(i) = mul(hhWeight.col(i), dt).sum();
+	_dh_next = dh_prev;
 	
 	// update weight
 	for (int i = 0; i < hiddenLayerSize; i++) {
@@ -80,46 +65,12 @@ void HiddenLayer::backward(VectorXd _dy, VectorXd& _dh_next) {
 		hhWeight.row(i) += -ETA * dt[i] * h_prev;
 	}
 	bias += -ETA * dt;
-	
-	/*
-	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
-	// Adam
-	VectorXd g, mt, vt;
-	for (int i = 0; i < hiddenLayerSize; i++) {
-		g = dt[i] * x;
-		xhM.row(i) = B1*(VectorXd)xhM.row(i) + (1-B1)*g;
-		xhV.row(i) = B2*(VectorXd)xhV.row(i) + (1-B2)*mul(g, g);
-			
-		mt = xhM.row(i)/(1-B1);
-		vt = xhV.row(i)/(1-B2);
-		xhWeight.row(i) += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
-		
-		g = dt[i] * h_prev;
-		hhM.row(i) = B1*(VectorXd)hhM.row(i) + (1-B1)*g;
-		hhV.row(i) = B2*(VectorXd)hhV.row(i) + (1-B2)*mul(g, g);
-		
-		mt = hhM.row(i)/(1-B1);
-		vt = hhV.row(i)/(1-B2);
-		hhWeight.row(i) += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
-	}
-	
-	g = dt;
-	bM = B1*bM + (1-B1)*g;
-	bV = B2*bV + (1-B2)*mul(g, g);
-	
-	mt = (1/(1-B1)) * bM;
-	vt = (1/(1-B2)) * bV;
-	bias += -ETA * mul(mt, reciproc(sqrt(vt + EPSILON)));
-	
-	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
-	*/
-	_dh_next = dh_prev;
 }
 
 NetworkManager& operator<<(NetworkManager& out, const HiddenLayer& layer) {
 	// save xhWeight
-	for (int i = 0; i < layer.inputLayerSize; i++) {
-		for (int j = 0; j < layer.hiddenLayerSize; j++)
+	for (int i = 0; i < layer.hiddenLayerSize; i++) {
+		for (int j = 0; j < layer.inputLayerSize; j++)
 			out << layer.xhWeight(i, j) << " ";
 	}
 	

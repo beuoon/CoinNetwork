@@ -1,8 +1,8 @@
-#include "DQRN.h"
+#include "ANN.h"
 
 #include <iostream>
 
-DQRN::DQRN(int _inputLayerNum, int _hiddenLayerNum, int _inputLayerSize, int _hiddenLayerSize, int _outputLayerSize) {
+ANN::ANN(int _inputLayerNum, int _hiddenLayerNum, int _inputLayerSize, int _hiddenLayerSize, int _outputLayerSize) {
 	inputLayerNum = _inputLayerNum;
 	hiddenLayerNum = _hiddenLayerNum;
 	inputLayerSize = _inputLayerSize;
@@ -13,7 +13,7 @@ DQRN::DQRN(int _inputLayerNum, int _hiddenLayerNum, int _inputLayerSize, int _hi
 		hiddenLayers.push_back(new HiddenLayer(inputLayerSize, hiddenLayerSize));
 	outputLayer = new OutputLayer(hiddenLayerSize, outputLayerSize);
 }
-DQRN::DQRN(NetworkManager &in) {
+ANN::ANN(NetworkManager &in) {
 	in >> inputLayerNum >> hiddenLayerNum;
 	in >> inputLayerSize >> hiddenLayerSize >> outputLayerSize;
 	
@@ -21,13 +21,13 @@ DQRN::DQRN(NetworkManager &in) {
 		hiddenLayers.push_back(new HiddenLayer(inputLayerSize, hiddenLayerSize, in));
 	outputLayer = new OutputLayer(hiddenLayerSize, outputLayerSize, in);
 }
-DQRN::~DQRN() {
+ANN::~ANN() {
 	for (int i = 0; i < hiddenLayerNum; i++)
 		delete hiddenLayers[i];
 	delete outputLayer;
 }
 	
-double DQRN::train(vector<VectorXd> _inputs, VectorXd _label) {
+double ANN::train(vector<VectorXd> _inputs, VectorXd _label) {
 	double error = 0;
 	VectorXd output = forward(_inputs);
 	
@@ -42,21 +42,8 @@ double DQRN::train(vector<VectorXd> _inputs, VectorXd _label) {
 	
 	return error;
 }
-double DQRN::loss(vector<VectorXd> _inputs, VectorXd _label) {
-	double error = 0;
-	VectorXd output = forward(_inputs);
 	
-	VectorXd delta(outputLayerSize);
-	for (int i = 0; i < outputLayerSize; i++) {
-		delta[i] = output[i] - _label[i];
-		error += -_label[i]*log(output[i]); // cross-entropy loss
-	}
-	error /= outputLayerSize;
-	
-	return error;
-}
-	
-VectorXd DQRN::forward(vector<VectorXd> _inputs) {
+VectorXd ANN::forward(vector<VectorXd> _inputs) {
 	VectorXd h_prev = VectorXd::Zero(hiddenLayerSize);
 	
 	// Hidden Layer
@@ -72,7 +59,7 @@ VectorXd DQRN::forward(vector<VectorXd> _inputs) {
 
 	return output;
 }
-void DQRN::backward(VectorXd _delta) {
+void ANN::backward(VectorXd _delta) {
 	VectorXd dh_next = VectorXd::Zero(hiddenLayerSize);
 	
 	// OutputLayer
@@ -85,7 +72,7 @@ void DQRN::backward(VectorXd _delta) {
 		hiddenLayers[i]->backward(dy, dh_next);
 }
 
-NetworkManager& operator<<(NetworkManager& out, const DQRN &network) {
+NetworkManager& operator<<(NetworkManager& out, const ANN &network) {
 	out << network.inputLayerNum << " " << network.hiddenLayerNum << "\n";
 	out << network.inputLayerSize << " " << network.hiddenLayerSize << " " << network.outputLayerSize << "\n";
 	
