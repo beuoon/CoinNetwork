@@ -278,7 +278,7 @@ private:
 		
 		for (int i = 0; i < pr.size(); i++) {
 			Value obj(kObjectType);
-			obj.AddMember("rate", pr[i], allocator);
+			obj.AddMember("value", pr[i], allocator);
 			data.PushBack(obj, allocator);
 		}
 		sd.AddMember("data", data, allocator);

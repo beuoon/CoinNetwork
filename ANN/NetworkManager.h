@@ -9,7 +9,6 @@ class NetworkManager {
 public:
 	void load(string str);
 	string save();
-	void cross(string str1, string str2);
 	
 	NetworkManager& operator>>(int &i);
 	NetworkManager& operator>>(double &d);

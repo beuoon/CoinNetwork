@@ -1,14 +1,12 @@
 #pragma once
 
-#define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP
-
 #include <iostream>
 #include <vector>
 #include <Eigen/Dense>
 #include <mutex>
 
 #include "ANN/NetworkManager.h"
-#include "ANN/DQRN.h"
+#include "ANN/ANN.h"
 #include "MySQL.h"
 
 using namespace Eigen;
@@ -40,13 +38,18 @@ private:
 	int checkAccuracy(double& accuracy, double& loss);
 
 private:
+<<<<<<< HEAD
 	const int INPUT_NUM = 10, HIDDEN_NUM = 20;
 	const int INPUT_SIZE = 10, HIDDEN_SIZE = 10, OUTPUT_SIZE = 3;
+=======
+	const int INPUT_NUM = 5, HIDDEN_NUM = 10;
+	const int INPUT_SIZE = 10, HIDDEN_SIZE = 10, OUTPUT_SIZE = 2;
+>>>>>>> CEE
 	
 	const double TRAIN_DATA_MAX = 1.01, TRAIN_DATA_MIN = 0.99;
 	const int TRAIN_DATA_NUM = 300;
 	
-	DQRN *network, *bestNetwork;
+	ANN *network, *bestNetwork;
 	int bestBenefit;
 	
 	bool bLoop, bTrain, bInvest;
