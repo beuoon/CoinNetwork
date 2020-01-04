@@ -14,7 +14,7 @@ public:
 	static MySQL *getInstance();
 
 	int query(const char *str);
-	MYSQL_RES *storeResult();
+	bool query_result(const char *str);
 	MYSQL_ROW fetchRow();
 	my_ulonglong getRowNum();
 	void freeResult();

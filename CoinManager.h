@@ -35,17 +35,16 @@ public:
 	
 private:
 	int fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &lastDataNumber);
-	int checkAccuracy(double& accuracy, double& loss);
+	double checkAccuracy(double& accuracy, double& loss);
 
 private:
-	const int INPUT_NUM = 10, HIDDEN_NUM = 20;
-	const int INPUT_SIZE = 10, HIDDEN_SIZE = 5, OUTPUT_SIZE = 2;
+	const int INPUT_NUM = 10, HIDDEN_NUM = 13;
+	const int INPUT_SIZE = 3, HIDDEN_SIZE = 5, OUTPUT_SIZE = 2;
 	
-	const double TRAIN_DATA_MAX = 1.01, TRAIN_DATA_MIN = 0.99;
 	const int TRAIN_DATA_NUM = 300;
 	
 	ANN *network, *bestNetwork;
-	int bestBenefit;
+	double bestBenefit, bestLoss;
 	
 	bool bLoop, bTrain, bInvest;
 	

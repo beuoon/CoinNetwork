@@ -17,11 +17,14 @@ int MySQL::query(const char *str) {
 	lock_guard<mutex> lg(mtx);
 	return mysql_query(&mysql, str);
 }
-MYSQL_RES *MySQL::storeResult() {
+bool MySQL::query_result(const char *str) {
 	mtx.lock();
-	if ((res = mysql_store_result(&mysql)) == NULL)
+	mysql_query(&mysql, str);
+	if ((res = mysql_store_result(&mysql)) == NULL) {
 		mtx.unlock();
-	return res;
+		return false;
+	}
+	return true;
 }
 MYSQL_ROW MySQL::fetchRow() {
 	return mysql_fetch_row(res);

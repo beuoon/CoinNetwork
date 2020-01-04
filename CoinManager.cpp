@@ -12,7 +12,7 @@ CoinManager::CoinManager() {
 	network = new ANN(INPUT_NUM, HIDDEN_NUM, INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE);
 	
 	bestNetwork = nullptr;
-	bestBenefit = 0;
+	bestBenefit = 0, bestLoss = 0;
 	loadNetwork();
 	
 	bLoop = true;
@@ -38,12 +38,13 @@ void CoinManager::loop() {
 			
 			// 검토
 			double accuracy, loss;
-			int benefit;
+			double benefit;
 			benefit = checkAccuracy(accuracy, loss);
 			
 			// 갱신
-			if (benefit > bestBenefit) {
+			if (benefit > 0.1 && loss < 0.3) {
 				bestBenefit = benefit;
+				bestLoss = loss;
 				cout << "Best Benefit: " << benefit << endl;
 				
 				mtx.lock();
@@ -57,8 +58,10 @@ void CoinManager::loop() {
 				saveNetwork();
 			}
 			
-			printf("TC: %d, B: %d, A: %.8lf, L: %.6lf, BB: %d\n", totalTrainCount, benefit, accuracy, loss, bestBenefit);
-			fflush(stdout);
+			if (totalTrainCount > 0) {
+				printf("TC: %d, B: %lf/%.6lf, BN: %lf/%lf\n", totalTrainCount, benefit, loss, bestBenefit, bestLoss);
+				fflush(stdout);
+			}
 			
 			// NaN 발생
 			if (isnan(loss) || isinf(loss)) {
@@ -166,8 +169,7 @@ bool CoinManager::predict(time_t predictTime, vector<double> &result) {
 	char query[1000];
 	
 	sprintf(query, "select number from history where datetime = '%s'", timeStr);
-	mysql->query(query);
-	if (mysql->storeResult() == NULL) return false;
+	if (!mysql->query_result(query)) return false;
 	if ((row = mysql->fetchRow()) == NULL) {
 		mysql->freeResult();
 		return false;
@@ -176,8 +178,7 @@ bool CoinManager::predict(time_t predictTime, vector<double> &result) {
 	mysql->freeResult();
 	
 	sprintf(query, "select * from train_data where number >= %d limit %d", dataNumber, INPUT_NUM);
-	mysql->query(query);
-	if (mysql->storeResult() == NULL) return false;
+	if (!mysql->query_result(query)) return false;
 	if (mysql->getRowNum() != INPUT_NUM) {
 		mysql->freeResult();
 		return false;
@@ -232,7 +233,7 @@ double CoinManager::train(int& trainCount) {
 		
 		while (labelIter != trainDataArr[i].end()) {
 			vector<VectorXd> input(inputIter, middleIter);
-			VectorXd label = ((*labelIter)(0) >= 0.1) ? trueLabel : falseLabel;
+			VectorXd label = ((*labelIter)(0) >= 0.008) ? trueLabel : falseLabel;
 			
 			totalError += network->train(input, label);
 			trainCount++;
@@ -251,7 +252,7 @@ double CoinManager::train(int& trainCount) {
 	
 	return totalError;
 }
-int CoinManager::checkAccuracy(double& accuracy, double& loss) {
+double CoinManager::checkAccuracy(double& accuracy, double& loss) {
 	vector<vector<VectorXd>> trainDataArr(1);
 	int lastDataNumber = 1, dataNum, count = 0;
 	
@@ -275,7 +276,7 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 			
 			while (labelIter != trainDataArr[i].end()) {
 				vector<VectorXd> input(inputIter, middleIter);
-				VectorXd label = ((*labelIter)(0) >= 0.1) ? trueLabel : falseLabel;
+				VectorXd label = ((*labelIter)(0) >= 0.008) ? trueLabel : falseLabel;
 				
 				// Error
 				double error = 0;
@@ -314,13 +315,15 @@ int CoinManager::checkAccuracy(double& accuracy, double& loss) {
 		}
 	} while (dataNum == TRAIN_DATA_NUM);
 	
-	printf("C: %d, T: %d/%d, F: %d/%d\n", count, TS, TF, FS, FF);
-	fflush(stdout);
+	if (count > 0) {	
+		printf("C: %d, T: %d/%d, F: %d/%d\n", count, TS, TF, FS, FF);
+		fflush(stdout);
 	
-	loss /= count;
-	accuracy /= count;
+		loss /= count;
+		accuracy /= count;
+	}
 	
-	return TS-FF;
+	return (double)TS/(TS+TF);
 }
 	
 int CoinManager::fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &lastDataNumber) {
@@ -343,9 +346,7 @@ int CoinManager::fetchTrainData(vector<vector<VectorXd>> &trainDataArr, int &las
 	
 	char query[1000];
 	sprintf(query, "select * from train_data where number > %d limit %d", lastDataNumber, TRAIN_DATA_NUM);
-	mysql->query(query);
-	
-	if (mysql->storeResult() == NULL) return 0;
+	if (!mysql->query_result(query)) return 0;
 	
 	int arrIndex = 0, dataCount = 0;
 	
@@ -374,16 +375,13 @@ void CoinManager::saveNetwork() {
 	NetworkManager mgr; mgr << *bestNetwork;
 	string networkStr = mgr.save();
 	
-	// DB 비우기
-	MySQL::getInstance()->query("delete from network");
-	
 	// DB 저장
 	char timeStr[250];
 	time_t t = time(NULL);
 	strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localtime(&t));
 	
 	char *query = new char[1000 + networkStr.size()];
-	sprintf(query, "insert into network values(NULL, '%s', %d, '%s')", timeStr, bestBenefit, networkStr.c_str());
+	sprintf(query, "insert into network values(NULL, '%s', %lf, %lf, '%s')", timeStr, bestBenefit, bestLoss, networkStr.c_str());
 	MySQL::getInstance()->query(query);
 	delete[] query;
 }
@@ -392,15 +390,14 @@ void CoinManager::loadNetwork() {
 	// DB 가져오기
 	MySQL *mysql = MySQL::getInstance();
 	MYSQL_ROW row;
-	mysql->query("select benefit, data from network order by id desc limit 1");
-
-	if (mysql->storeResult() == NULL) return;
+	if (!mysql->query_result("select benefit, loss, data from network order by id desc limit 1")) return;
 	if ((row = mysql->fetchRow()) == NULL) {
 		mysql->freeResult();
 		return;
 	}
 	bestBenefit = atof(row[0]);
-	char *str = row[1];
+	bestLoss = atof(row[1]);
+	char *str = row[2];
 	
 	NetworkManager mgr;
 	mgr.load(string(str));

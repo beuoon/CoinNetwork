@@ -81,7 +81,6 @@ namespace Bithumb {
 		
 		for (const Value& trans : data.GetArray())
 			history.push_back(Transaction(trans));
-		
 		return true;
 	}
 	

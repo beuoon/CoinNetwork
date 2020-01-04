@@ -15,11 +15,13 @@ int Server::open() {
 		
 	if (-1 == bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr))) {
 		printf("bind() 실행 에러\n");
+		close();
 		return 2;
 	}
 	
 	if (-1 == listen(server_socket, CLIENT_MAX_NUM)) {
 		printf( "대기상태 모드 설정 실패n");
+		close();
 		return 3;
 	}
 	

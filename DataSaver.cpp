@@ -59,9 +59,8 @@ void DataSaver::setting() {
 	// firstNumber 설정
 	MySQL *mysql = MySQL::getInstance();
 	MYSQL_ROW row;
-	
-	mysql->query("select number from history order by datetime desc limit 1");
-	if (mysql->storeResult() == NULL) 			firstNumber = 1;
+	char query[] = "select number from history order by datetime desc limit 1";
+	if (!mysql->query_result(query)) 			firstNumber = 1;
 	else {
 		if ((row = mysql->fetchRow()) == NULL)	firstNumber = 1;
 		else									firstNumber = atoi(row[0]) + 1;
@@ -158,28 +157,13 @@ void DataSaver::processOrderData() {
 
 void DataSaver::sendDB() {
 	// 변화량 측정
-	double trans_ask_min_rate = 0, trans_ask_avrg_rate = 0;
-	double trans_bid_max_rate = 0, trans_bid_avrg_rate = 0;
-	double order_ask_min_rate = 0, order_ask_avrg_rate = 0;
-	double order_bid_max_rate = 0, order_bid_avrg_rate = 0;
-		
+	double trans_price_rate = 0;
+	
 	if (count > 0) {
-		if (trans_ask_unit != 0) {
-			trans_ask_min_rate = ((trans_ask_min/prev_trans_ask_min - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
-			trans_ask_avrg_rate = ((trans_ask_avrg/prev_trans_ask_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
-		}
-		if (trans_bid_unit != 0) {
-			trans_bid_max_rate = ((trans_bid_max/prev_trans_bid_max - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
-			trans_bid_avrg_rate = ((trans_bid_avrg/prev_trans_bid_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.1225;
-		}
-		if (order_ask_unit != 0) {
-			order_ask_min_rate = ((order_ask_min/prev_order_ask_min - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
-			order_ask_avrg_rate = ((order_ask_avrg/prev_order_ask_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
-		}
-		if (order_bid_unit != 0) {
-			order_bid_max_rate = ((order_bid_max/prev_order_bid_max - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
-			order_bid_avrg_rate = ((order_bid_avrg/prev_order_bid_avrg - TRAIN_DATA_MIN)/(TRAIN_DATA_MAX-TRAIN_DATA_MIN) - 0.5)/0.02;
-		}
+		double price = (trans_ask_min != 0 && trans_bid_max != 0) ? (trans_ask_min+trans_bid_max)/2 : ((trans_ask_min != 0) ? trans_ask_min : trans_bid_max);
+		
+		trans_price_rate = price / ((prev_trans_ask_min+prev_trans_bid_max)/2);
+		trans_price_rate = (trans_price_rate - 1)/0.1225;
 	}
 		
 	//＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊＊//
@@ -196,10 +180,8 @@ void DataSaver::sendDB() {
 	
 	// 학습 데이터
 	if (count > 0) {
-		sprintf(query, "insert into train_data values(%d, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf, %lf)", firstNumber + count,
-				trans_ask_min_rate, trans_ask_avrg_rate, trans_ask_unit/100,
-				trans_bid_max_rate, trans_bid_avrg_rate, trans_bid_unit/100,
-				order_ask_min_rate, order_ask_avrg_rate, order_bid_max_rate, order_bid_avrg_rate);
+		sprintf(query, "insert into train_data values(%d, %lf, %lf, %lf)", firstNumber + count,
+				trans_price_rate, trans_ask_unit/100, trans_bid_unit/100);
 		mysql->query(query);
 	}
 }
